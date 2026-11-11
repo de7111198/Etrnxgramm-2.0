@@ -34,10 +34,142 @@ class _ChatsPageState extends State<ChatsPage> {
         .select('id, kind, title, updated_at')
         .inFilter('id', ids)
         .order('updated_at', ascending: false);
-    return rows;
+
+    final membershipsForChats = await _client
+        .from('chat_members')
+        .select('chat_id, user_id')
+        .inFilter('chat_id', ids)
+        .neq('user_id', userId);
+    final otherUserIds = membershipsForChats
+        .map((row) => row['user_id'] as String)
+        .toSet()
+        .toList();
+    final profileRows = otherUserIds.isEmpty
+        ? <Map<String, dynamic>>[]
+        : await _client
+            .from('profiles')
+            .select('id, display_name')
+            .inFilter('id', otherUserIds);
+    final usernameRows = otherUserIds.isEmpty
+        ? <Map<String, dynamic>>[]
+        : await _client
+            .from('usernames')
+            .select('user_id, username')
+            .inFilter('user_id', otherUserIds)
+            .eq('is_primary', true);
+
+    final names = <String, String>{
+      for (final row in profileRows)
+        row['id'] as String: row['display_name'] as String,
+    };
+    final usernames = <String, String>{
+      for (final row in usernameRows)
+        row['user_id'] as String: row['username'] as String,
+    };
+    final otherByChat = <String, List<String>>{};
+    for (final row in membershipsForChats) {
+      otherByChat.putIfAbsent(row['chat_id'] as String, () => [])
+          .add(row['user_id'] as String);
+    }
+
+    return rows.map((chat) {
+      final result = Map<String, dynamic>.from(chat);
+      if (chat['kind'] == 'direct') {
+        final others = otherByChat[chat['id']] ?? [];
+        final otherId = others.isEmpty ? null : others.first;
+        result['display_title'] = otherId == null
+            ? 'Личный чат'
+            : (names[otherId] ?? 'Пользователь');
+        result['display_subtitle'] =
+            otherId != null && usernames.containsKey(otherId)
+                ? '@${usernames[otherId]}'
+                : 'Личный диалог';
+      } else {
+        result['display_title'] = chat['title'] ?? 'Группа';
+        result['display_subtitle'] = 'Групповой чат';
+      }
+      return result;
+    }).toList();
   }
 
   void _reload() => setState(() => _chats = _loadChats());
+
+  Future<void> _startGroup() async {
+    final controller = TextEditingController();
+    final title = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Новая группа'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 80,
+          decoration: const InputDecoration(labelText: 'Название группы'),
+          onSubmitted: (value) => Navigator.pop(dialogContext, value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text),
+            child: const Text('Создать'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (title == null || title.trim().isEmpty || !mounted) return;
+    try {
+      final chatId = await _client.rpc('create_group_chat', params: {
+        'chat_title': title.trim(),
+        'member_ids': <String>[],
+      });
+      if (!mounted) return;
+      _reload();
+      await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => ChatThreadPage(
+          chatId: chatId as String,
+          title: title.trim(),
+        ),
+      ));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось создать группу: $error')),
+      );
+    }
+  }
+
+  Future<void> _showCreateOptions() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.person_add_alt_1),
+              title: const Text('Новый диалог'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _startChat();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.group_add_outlined),
+              title: const Text('Новая группа'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _startGroup();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Future<void> _startChat() async {
     final controller = TextEditingController();
@@ -99,7 +231,7 @@ class _ChatsPageState extends State<ChatsPage> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton(
-        onPressed: _startChat,
+        onPressed: _showCreateOptions,
         tooltip: 'Новый диалог',
         child: const Icon(Icons.edit),
       ),
@@ -137,14 +269,17 @@ class _ChatsPageState extends State<ChatsPage> {
               itemBuilder: (context, index) {
                 final chat = chats[index];
                 final isDirect = chat['kind'] == 'direct';
-                final title = isDirect ? 'Личный чат' : (chat['title'] as String? ?? 'Группа');
+                final title = chat['display_title'] as String? ??
+                    (isDirect ? 'Личный чат' : (chat['title'] as String? ?? 'Группа'));
+                final subtitle = chat['display_subtitle'] as String? ??
+                    (isDirect ? 'Личный диалог' : 'Групповой чат');
                 return ListTile(
                   leading: CircleAvatar(
                     backgroundColor: const Color(0xFF302746),
                     child: Icon(isDirect ? Icons.person_outline : Icons.groups_outlined),
                   ),
                   title: Text(title),
-                  subtitle: Text(isDirect ? 'Откройте диалог' : 'Групповой чат'),
+                  subtitle: Text(subtitle),
                   onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
                     builder: (_) => ChatThreadPage(chatId: chat['id'] as String, title: title),
                   )),
