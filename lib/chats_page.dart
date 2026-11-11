@@ -133,7 +133,6 @@ class _ChatsPageState extends State<ChatsPage> {
           chatId: chatId as String,
           title: title.trim(),
           isGroup: true,
-          isChannel: true,
         ),
       ));
     } catch (error) {
@@ -183,6 +182,7 @@ class _ChatsPageState extends State<ChatsPage> {
           chatId: chatId as String,
           title: title.trim(),
           isGroup: true,
+          isChannel: true,
         ),
       ));
     } catch (error) {
@@ -371,6 +371,29 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
   Map<String, dynamic>? _replyTo;
 
   SupabaseClient get _client => Supabase.instance.client;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isChannel) _loadPostingPermission();
+  }
+
+  Future<void> _loadPostingPermission() async {
+    try {
+      final row = await _client
+          .from('chat_members')
+          .select('role')
+          .eq('chat_id', widget.chatId)
+          .eq('user_id', _client.auth.currentUser!.id)
+          .maybeSingle();
+      if (!mounted) return;
+      setState(() => _canPost =
+          row?['role'] == 'owner' || row?['role'] == 'admin');
+    } catch (_) {
+      if (mounted) setState(() => _canPost = false);
+    }
+  }
+
 
 
 
