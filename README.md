@@ -10,7 +10,7 @@ Etrnxgram is a Flutter messenger project targeting Android and Windows, with And
 - Profile editing UI is currently local to the device; it is not synchronized to a server yet.
 - GitHub Actions checks Dart analysis, runs widget tests and builds Android and Windows release artifacts.
 - GitHub Actions also attempts an unsigned iOS release build on macOS runners.
-- Supabase schema and initial secure chat-operation functions are included in `supabase/migrations/`.
+- Supabase schema and secure chat operations are included in `supabase/migrations/`. The client now has chat creation, direct conversations, group member lists, invitations by username, role management and ownership transfer; these features require the Supabase project and migrations to be activated.
 - **The backend is not connected yet.** Login, real-time messaging, multi-device sync, gifts and marketplace actions are not live features at this stage.
 
 ## Build artifacts
@@ -31,6 +31,8 @@ Migrations are in `supabase/migrations/`:
 - `0003_chat_hardening.sql` adds owner-controlled group/channel ownership transfer and serializes membership changes.
 - `0004_remove_group_member_cap.sql` removes the fixed group member-count cap while keeping membership changes restricted to owners/admins.
 - `0005_profile_sync.sql` adds a transactional primary-username operation and profile update timestamp trigger.
+- `0006_secure_message_sending.sql` adds authenticated message sending with membership and reply checks, and enables message Realtime.
+- `0007_group_member_moderation.sql` adds owner-controlled admin promotion/demotion and secure member removal; admins can remove regular members only.
 
 Gift grants, transfers, marketplace settlement and owner/admin management still require trusted server-side operations with authorization and audit logging. There is no owner account or hidden default administrator.
 
