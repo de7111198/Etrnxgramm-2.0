@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'supabase_config.dart';
+
 class ChatsPage extends StatefulWidget {
   const ChatsPage({super.key});
 
@@ -16,7 +18,7 @@ class _ChatsPageState extends State<ChatsPage> {
   @override
   void initState() {
     super.initState();
-    _chats = _loadChats();
+    _chats = SupabaseConfig.isConfigured ? _loadChats() : Future.value([]);
   }
 
   Future<List<Map<String, dynamic>>> _loadChats() async {
