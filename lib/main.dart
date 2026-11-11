@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'auth_page.dart';
 import 'supabase_config.dart';
 import 'profile_page.dart';
+import 'chats_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -123,17 +124,6 @@ class _MainScreenState extends State<MainScreen> {
       ),
     );
   }
-}
-
-class ChatsPage extends StatelessWidget {
-  const ChatsPage({super.key});
-
-  @override
-  Widget build(BuildContext context) => const _EmptySection(
-        icon: Icons.forum_outlined,
-        title: 'Чатов пока нет',
-        message: 'Когда появятся реальные диалоги, они будут показаны здесь.',
-      );
 }
 
 class GiftsPage extends StatelessWidget {
