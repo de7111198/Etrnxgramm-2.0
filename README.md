@@ -9,7 +9,6 @@ Etrnxgram is a Flutter messenger project targeting Android and Windows, with And
 - Gifts includes a published-model catalog and a personal collection view; gift grants, transfers and purchases remain server-side work.
 - Email one-time-code login UI and Supabase session gate are implemented. They activate only when the Supabase project URL and public anon/publishable key are supplied at build time.
 - Profile name, about text and primary username now load from and save to Supabase when configured. Cover art and avatar presentation are still local UI only.
-- Profile editing UI is currently local to the device; it is not synchronized to a server yet.
 - GitHub Actions checks Dart analysis, runs widget tests and builds Android and Windows release artifacts.
 - GitHub Actions also attempts an unsigned iOS release build on macOS runners.
 - Supabase schema and secure chat operations are included in `supabase/migrations/`. The client now has chat creation, direct conversations, group member lists, invitations by username, role management and ownership transfer; these features require the Supabase project and migrations to be activated.
@@ -41,6 +40,7 @@ Migrations are in `supabase/migrations/`:
 - `0011_message_actions.sql` adds server-checked message editing, deletion and forwarding.
 - `0012_pinned_messages.sql` adds membership-protected pinned-message reads and role-checked pin/unpin operations, with a live pinned-message banner in chat threads.
 - `0013_chat_settings.sql` adds per-user archive, mute and pin settings with row-level security.
+- `0014_lock_down_message_writes.sql` removes direct message-table write policies so channel restrictions and message actions cannot be bypassed through direct client table writes.
 
 The owner gift panel is available only after the maintainer manually inserts their verified Supabase Auth user UUID into `public.platform_owners` using the Supabase SQL Editor. There is no first-user auto-owner or hidden default administrator. User-to-user gift transfers and marketplace settlement still require additional trusted server-side operations and audit logging.
 
