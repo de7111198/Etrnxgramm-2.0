@@ -31,6 +31,12 @@ jobs:
       - name: Generate Android platform files
         run: flutter create --platforms=android --project-name etrnxgram .
 
+      - name: Set Android compile SDK
+        run: |
+          find android/app -name 'build.gradle*' -type f -exec sed -i \
+            -e 's/compileSdk = flutter.compileSdkVersion/compileSdk = 36/' \
+            -e 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 36/' {} \;
+
       - name: Install dependencies
         run: flutter pub get
 
