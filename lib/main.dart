@@ -5,6 +5,7 @@ import 'auth_page.dart';
 import 'supabase_config.dart';
 import 'profile_page.dart';
 import 'chats_page.dart';
+import 'contacts_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -134,17 +135,6 @@ class GiftsPage extends StatelessWidget {
         icon: Icons.card_giftcard_outlined,
         title: 'Подарки',
         message: 'Коллекция подарков пока не подключена к серверу.',
-      );
-}
-
-class ContactsPage extends StatelessWidget {
-  const ContactsPage({super.key});
-
-  @override
-  Widget build(BuildContext context) => const _EmptySection(
-        icon: Icons.people_outline,
-        title: 'Контакты',
-        message: 'Список контактов появится после подключения аккаунтов.',
       );
 }
 
