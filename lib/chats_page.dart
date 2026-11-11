@@ -566,6 +566,20 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
     }
   }
 
+  Future<void> _toggleReaction(String messageId, String emoji) async {
+    try {
+      await _client.rpc('toggle_message_reaction', params: {
+        'target_message': messageId,
+        'reaction_emoji': emoji,
+      });
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось поставить реакцию: $error')),
+      );
+    }
+  }
+
   Future<void> _send() async {
     final text = _controller.text.trim();
     if (text.isEmpty || _sending) return;
@@ -680,6 +694,65 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                                 ),
                               ),
                             Text(message['body'] as String),
+                            const SizedBox(height: 6),
+                            StreamBuilder<List<Map<String, dynamic>>>(
+                              stream: _client
+                                  .from('message_reactions')
+                                  .stream(primaryKey: ['id'])
+                                  .eq('message_id', message['id'] as String),
+                              builder: (context, reactionSnapshot) {
+                                final rows = reactionSnapshot.data ?? [];
+                                final counts = <String, int>{};
+                                final mine = <String>{};
+                                for (final row in rows) {
+                                  final emoji = row['emoji'] as String;
+                                  counts[emoji] = (counts[emoji] ?? 0) + 1;
+                                  if (row['user_id'] == userId) mine.add(emoji);
+                                }
+                                const choices = ['👍', '❤️', '😂', '😮', '😢', '🔥', '🎉'];
+                                return Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (counts.isNotEmpty)
+                                      Flexible(
+                                        child: Wrap(
+                                          spacing: 4,
+                                          runSpacing: 2,
+                                          children: counts.entries.map((entry) => ActionChip(
+                                            visualDensity: VisualDensity.compact,
+                                            padding: EdgeInsets.zero,
+                                            label: Text('${entry.key} ${entry.value}'),
+                                            backgroundColor: mine.contains(entry.key)
+                                                ? const Color(0xFF8065B5)
+                                                : const Color(0xFF393442),
+                                            onPressed: () => _toggleReaction(
+                                              message['id'] as String, entry.key,
+                                            ),
+                                          )).toList(),
+                                        ),
+                                      ),
+                                    PopupMenuButton<String>(
+                                      tooltip: 'Поставить реакцию',
+                                      padding: EdgeInsets.zero,
+                                      iconSize: 19,
+                                      onSelected: (emoji) => _toggleReaction(
+                                        message['id'] as String, emoji,
+                                      ),
+                                      itemBuilder: (_) => choices.map((emoji) =>
+                                        PopupMenuItem<String>(
+                                          value: emoji,
+                                          child: Text(emoji, style: const TextStyle(fontSize: 22)),
+                                        ),
+                                      ).toList(),
+                                      child: const Padding(
+                                        padding: EdgeInsets.symmetric(horizontal: 6),
+                                        child: Icon(Icons.add_reaction_outlined, size: 19),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
                           ],
                         ),
                       ),
