@@ -75,9 +75,14 @@ class _ChatsPageState extends State<ChatsPage> {
 
     final settings = await _client
         .from('chat_user_settings')
-        .select('chat_id, archived_at, muted_until')
+        .select('chat_id, archived_at, muted_until, pinned_at')
         .eq('user_id', userId)
         .inFilter('chat_id', ids);
+    final pinnedAt = <String, DateTime>{
+      for (final row in settings)
+        if (row['pinned_at'] != null)
+          row['chat_id'] as String: DateTime.parse(row['pinned_at'] as String),
+    };
     final archivedIds = settings
         .where((row) => row['archived_at'] != null)
         .map((row) => row['chat_id'] as String)
@@ -104,8 +109,17 @@ class _ChatsPageState extends State<ChatsPage> {
         result['display_subtitle'] = chat['kind'] == 'channel' ? 'Канал' : 'Групповой чат';
       }
       result['is_muted'] = mutedIds.contains(chat['id']);
+      result['pinned_at'] = pinnedAt[chat['id']];
       return result;
-    }).where((chat) => archivedIds.contains(chat['id']) == _showArchived).toList();
+    }).where((chat) => archivedIds.contains(chat['id']) == _showArchived).toList()
+      ..sort((a, b) {
+        final aPinned = a['pinned_at'] as DateTime?;
+        final bPinned = b['pinned_at'] as DateTime?;
+        if (aPinned == null && bPinned == null) return 0;
+        if (aPinned == null) return 1;
+        if (bPinned == null) return -1;
+        return bPinned.compareTo(aPinned);
+      });
   }
 
   Future<void> _setMuted(Map<String, dynamic> chat, bool muted) async {
@@ -123,6 +137,23 @@ class _ChatsPageState extends State<ChatsPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Не удалось изменить уведомления: $error')),
+      );
+    }
+  }
+
+  Future<void> _setPinned(Map<String, dynamic> chat, bool pinned) async {
+    try {
+      await _client.from('chat_user_settings').upsert({
+        'chat_id': chat['id'],
+        'user_id': _client.auth.currentUser!.id,
+        'pinned_at': pinned ? DateTime.now().toUtc().toIso8601String() : null,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      });
+      _reload();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось закрепить чат: $error')),
       );
     }
   }
@@ -423,15 +454,26 @@ class _ChatsPageState extends State<ChatsPage> {
                   ),
                   title: Text(title),
                   subtitle: Text(subtitle),
-                  trailing: PopupMenuButton<String>(
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (chat['pinned_at'] != null)
+                        const Icon(Icons.push_pin, size: 17, color: Colors.purpleAccent),
+                      PopupMenuButton<String>(
                     onSelected: (value) {
                       if (value == 'archive' || value == 'unarchive') {
                         _setArchived(chat, value == 'archive');
                       } else if (value == 'mute' || value == 'unmute') {
                         _setMuted(chat, value == 'mute');
+                      } else if (value == 'pin' || value == 'unpin') {
+                        _setPinned(chat, value == 'pin');
                       }
                     },
                     itemBuilder: (_) => [
+                      PopupMenuItem(
+                        value: chat['pinned_at'] == null ? 'pin' : 'unpin',
+                        child: Text(chat['pinned_at'] == null ? 'Закрепить чат' : 'Открепить чат'),
+                      ),
                       PopupMenuItem(
                         value: chat['is_muted'] == true ? 'unmute' : 'mute',
                         child: Text(chat['is_muted'] == true
@@ -441,6 +483,7 @@ class _ChatsPageState extends State<ChatsPage> {
                       PopupMenuItem(
                         value: _showArchived ? 'unarchive' : 'archive',
                         child: Text(_showArchived ? 'Вернуть из архива' : 'В архив'),
+                      ),
                       ),
                     ],
                   ),
