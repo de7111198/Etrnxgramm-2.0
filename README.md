@@ -8,7 +8,7 @@ Etrnxgram is a Flutter messenger project targeting Android and Windows, with And
 - Channels have server-enforced read-only subscriber access: only owners and admins can publish.
 - Gifts includes a published-model catalog and a personal collection view; gift grants, transfers and purchases remain server-side work.
 - Email one-time-code login UI and Supabase session gate are implemented. They activate only when the Supabase project URL and public anon/publishable key are supplied at build time.
-- Profile name, about text and primary username now load from and save to Supabase when configured. Cover art and avatar presentation are still local UI only.
+- Profile name, about text, primary username, avatar URL and cover URL load from and save to Supabase when configured. The profile renders custom avatar and cover images; direct image upload is not implemented yet.
 - GitHub Actions checks Dart analysis, runs widget tests and builds Android and Windows release artifacts.
 - GitHub Actions also attempts an unsigned iOS release build on macOS runners.
 - Supabase schema and secure chat operations are included in `supabase/migrations/`. The client now has chat creation, direct conversations, group member lists, invitations by username, role management and ownership transfer; these features require the Supabase project and migrations to be activated.
@@ -42,6 +42,7 @@ Migrations are in `supabase/migrations/`:
 - `0013_chat_settings.sql` adds per-user archive, mute and pin settings with row-level security.
 - `0014_lock_down_message_writes.sql` removes direct message-table write policies so channel restrictions and message actions cannot be bypassed through direct client table writes.
 - `0015_case_insensitive_usernames.sql` prevents case-only duplicate usernames.
+- `0016_profile_cover.sql` adds persistent profile cover URLs and validates avatar/cover URL lengths.
 
 The owner gift panel is available only after the maintainer manually inserts their verified Supabase Auth user UUID into `public.platform_owners` using the Supabase SQL Editor. There is no first-user auto-owner or hidden default administrator. User-to-user gift transfers and marketplace settlement still require additional trusted server-side operations and audit logging.
 
