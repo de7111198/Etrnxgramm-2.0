@@ -6,6 +6,7 @@ import 'supabase_config.dart';
 import 'profile_page.dart';
 import 'chats_page.dart';
 import 'contacts_page.dart';
+import 'gifts_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -125,17 +126,6 @@ class _MainScreenState extends State<MainScreen> {
       ),
     );
   }
-}
-
-class GiftsPage extends StatelessWidget {
-  const GiftsPage({super.key});
-
-  @override
-  Widget build(BuildContext context) => const _EmptySection(
-        icon: Icons.card_giftcard_outlined,
-        title: 'Подарки',
-        message: 'Коллекция подарков пока не подключена к серверу.',
-      );
 }
 
 class _EmptySection extends StatelessWidget {
