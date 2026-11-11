@@ -1,6 +1,6 @@
 # Etrnxgram
 
-Etrnxgram is a Flutter messenger project targeting Android and Windows, with an iOS build planned.
+Etrnxgram is a Flutter messenger project targeting Android and Windows, with Android, Windows and unsigned iOS builds configured in CI.
 
 ## Current project status
 
@@ -26,6 +26,7 @@ Migrations are in `supabase/migrations/`:
 
 - `0001_initial_schema.sql` defines profiles, multiple usernames, chats, membership, messages, gift collections/models, owned gifts, transfers and listings. Row Level Security is enabled.
 - `0002_chat_operations.sql` adds authenticated database functions for creating direct/group chats, adding group members as an owner/admin, and leaving chats. These functions check the caller's identity and permissions.
+- `0003_chat_hardening.sql` enforces the 200-member group limit, serializes member additions, and adds owner-controlled group/channel ownership transfer.
 
 Gift grants, transfers, marketplace settlement and owner/admin management still require trusted server-side operations with authorization and audit logging. There is no owner account or hidden default administrator.
 
