@@ -40,6 +40,7 @@ Migrations are in `supabase/migrations/`:
 - `0010_platform_owner_gift_admin.sql` adds an explicitly seeded platform-owner registry and secure gift collection/model creation and gift-grant RPCs.
 - `0011_message_actions.sql` adds server-checked message editing, deletion and forwarding.
 - `0012_pinned_messages.sql` adds membership-protected pinned-message reads and role-checked pin/unpin operations, with a live pinned-message banner in chat threads.
+- `0013_chat_settings.sql` adds per-user archive, mute and pin settings with row-level security.
 
 The owner gift panel is available only after the maintainer manually inserts their verified Supabase Auth user UUID into `public.platform_owners` using the Supabase SQL Editor. There is no first-user auto-owner or hidden default administrator. User-to-user gift transfers and marketplace settlement still require additional trusted server-side operations and audit logging.
 
