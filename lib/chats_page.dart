@@ -1260,7 +1260,7 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                   ),
                 ],
               ),
-            )
+            ),
           else
             const SafeArea(
               child: Padding(
