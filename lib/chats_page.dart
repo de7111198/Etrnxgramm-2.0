@@ -86,7 +86,7 @@ class _ChatsPageState extends State<ChatsPage> {
                 : 'Личный диалог';
       } else {
         result['display_title'] = chat['title'] ?? 'Группа';
-        result['display_subtitle'] = 'Групповой чат';
+        result['display_subtitle'] = chat['kind'] == 'channel' ? 'Канал' : 'Групповой чат';
       }
       return result;
     }).toList();
@@ -143,6 +143,55 @@ class _ChatsPageState extends State<ChatsPage> {
     }
   }
 
+  Future<void> _startChannel() async {
+    final controller = TextEditingController();
+    final title = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Новый канал'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 80,
+          decoration: const InputDecoration(labelText: 'Название канала'),
+          onSubmitted: (value) => Navigator.pop(dialogContext, value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text),
+            child: const Text('Создать'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (title == null || title.trim().isEmpty || !mounted) return;
+    try {
+      final chatId = await _client.rpc('create_channel_chat', params: {
+        'channel_title': title.trim(),
+        'member_ids': <String>[],
+      });
+      if (!mounted) return;
+      _reload();
+      await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => ChatThreadPage(
+          chatId: chatId as String,
+          title: title.trim(),
+          isGroup: true,
+        ),
+      ));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось создать канал: $error')),
+      );
+    }
+  }
+
   Future<void> _showCreateOptions() async {
     await showModalBottomSheet<void>(
       context: context,
@@ -156,6 +205,14 @@ class _ChatsPageState extends State<ChatsPage> {
               onTap: () {
                 Navigator.pop(sheetContext);
                 _startChat();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.campaign_outlined),
+              title: const Text('Новый канал'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _startChannel();
               },
             ),
             ListTile(
@@ -277,7 +334,7 @@ class _ChatsPageState extends State<ChatsPage> {
                 return ListTile(
                   leading: CircleAvatar(
                     backgroundColor: const Color(0xFF302746),
-                    child: Icon(isDirect ? Icons.person_outline : Icons.groups_outlined),
+                    child: Icon(isDirect ? Icons.person_outline : (chat['kind'] == 'channel' ? Icons.campaign_outlined : Icons.groups_outlined)),
                   ),
                   title: Text(title),
                   subtitle: Text(subtitle),
