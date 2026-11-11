@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'chats_page.dart';
+
 class ContactsPage extends StatefulWidget {
   const ContactsPage({super.key});
 
@@ -88,7 +90,7 @@ class _ContactsPageState extends State<ContactsPage> {
       if (!mounted) return;
       final title = contact['display_name'] as String? ?? 'Личный чат';
       await Navigator.of(context).push(MaterialPageRoute<void>(
-        builder: (_) => _ContactChatPlaceholder(
+        builder: (_) => ChatThreadPage(
           chatId: chatId as String,
           title: title,
         ),
@@ -186,18 +188,3 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 }
 
-class _ContactChatPlaceholder extends StatelessWidget {
-  const _ContactChatPlaceholder({required this.chatId, required this.title});
-
-  final String chatId;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text(title)),
-        body: Center(
-          child: Text('Диалог создан. Открой вкладку «Чаты», чтобы продолжить.\n$chatId',
-              textAlign: TextAlign.center),
-        ),
-      );
-}
