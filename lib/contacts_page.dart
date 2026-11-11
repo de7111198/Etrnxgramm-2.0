@@ -37,27 +37,32 @@ class _ContactsPageState extends State<ContactsPage> {
         ? await profileQuery.order('display_name').limit(50)
         : await profileQuery.ilike('display_name', '%$query%').limit(50);
     final ids = profileRows.map((row) => row['id'] as String).toList();
-    final usernameRows = await _client
-        .from('usernames')
-        .select('user_id, username')
-        .eq('is_primary', true)
-        .limit(500);
+    final usernameRows = ids.isEmpty
+        ? <Map<String, dynamic>>[]
+        : await _client
+            .from('usernames')
+            .select('user_id, username')
+            .eq('is_primary', true)
+            .inFilter('user_id', ids);
     final usernames = <String, String>{
       for (final row in usernameRows)
         row['user_id'] as String: row['username'] as String,
     };
 
-    var results = profileRows.map((row) {
+    final results = profileRows.map((row) {
       final item = Map<String, dynamic>.from(row);
       item['username'] = usernames[item['id']];
       return item;
     }).toList();
 
     if (query.isNotEmpty) {
-      final matchingIds = usernameRows
-          .where((row) => (row['username'] as String)
-              .toLowerCase()
-              .contains(query.toLowerCase()))
+      final matchingUsernames = await _client
+          .from('usernames')
+          .select('user_id, username')
+          .eq('is_primary', true)
+          .ilike('username', '%$query%')
+          .limit(50);
+      final matchingIds = matchingUsernames
           .map((row) => row['user_id'] as String)
           .where((id) => id != currentUserId && !ids.contains(id))
           .toList();
@@ -66,9 +71,13 @@ class _ContactsPageState extends State<ContactsPage> {
             .from('profiles')
             .select('id, display_name, about')
             .inFilter('id', matchingIds);
+        final matchingHandles = <String, String>{
+          for (final row in matchingUsernames)
+            row['user_id'] as String: row['username'] as String,
+        };
         results.addAll(extraProfiles.map((row) {
           final item = Map<String, dynamic>.from(row);
-          item['username'] = usernames[item['id']];
+          item['username'] = matchingHandles[item['id']];
           return item;
         }));
       }
