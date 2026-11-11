@@ -41,6 +41,7 @@ Migrations are in `supabase/migrations/`:
 - `0012_pinned_messages.sql` adds membership-protected pinned-message reads and role-checked pin/unpin operations, with a live pinned-message banner in chat threads.
 - `0013_chat_settings.sql` adds per-user archive, mute and pin settings with row-level security.
 - `0014_lock_down_message_writes.sql` removes direct message-table write policies so channel restrictions and message actions cannot be bypassed through direct client table writes.
+- `0015_case_insensitive_usernames.sql` prevents case-only duplicate usernames.
 
 The owner gift panel is available only after the maintainer manually inserts their verified Supabase Auth user UUID into `public.platform_owners` using the Supabase SQL Editor. There is no first-user auto-owner or hidden default administrator. User-to-user gift transfers and marketplace settlement still require additional trusted server-side operations and audit logging.
 
