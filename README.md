@@ -4,7 +4,8 @@ Etrnxgram is a Flutter messenger project targeting Android and Windows, with And
 
 ## Current project status
 
-- Flutter app with Chats, Gifts, Contacts and Profile tabs; Contacts supports user search by display name or primary username and opens direct conversations.
+- Flutter app with Chats, Groups, Channels, Gifts, Contacts and Profile tabs; Contacts supports user search by display name or primary username and opens direct conversations.
+- Channels have server-enforced read-only subscriber access: only owners and admins can publish.
 - Gifts includes a published-model catalog and a personal collection view; gift grants, transfers and purchases remain server-side work.
 - Email one-time-code login UI and Supabase session gate are implemented. They activate only when the Supabase project URL and public anon/publishable key are supplied at build time.
 - Profile name, about text and primary username now load from and save to Supabase when configured. Cover art and avatar presentation are still local UI only.
@@ -35,6 +36,7 @@ Migrations are in `supabase/migrations/`:
 - `0006_secure_message_sending.sql` adds authenticated message sending with membership and reply checks, and enables message Realtime.
 - `0007_group_member_moderation.sql` adds owner-controlled admin promotion/demotion and secure member removal; admins can remove regular members only.
 - `0008_message_reactions.sql` adds per-user message reactions, membership-protected reads, a secure toggle RPC and Realtime updates.
+- `0009_channels.sql` adds channel creation and enforces owner/admin-only publishing on the server.
 
 Gift grants, transfers, marketplace settlement and owner/admin management still require trusted server-side operations with authorization and audit logging. There is no owner account or hidden default administrator.
 
