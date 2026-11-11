@@ -4,14 +4,15 @@ Etrnxgram is a Flutter messenger project targeting Android and Windows, with And
 
 ## Current project status
 
-- Flutter app shell with Chats, Gifts, Contacts and Profile tabs.
+- Flutter app with Chats, Gifts, Contacts and Profile tabs; Contacts supports user search by display name or primary username and opens direct conversations.
+- Gifts includes a published-model catalog and a personal collection view; gift grants, transfers and purchases remain server-side work.
 - Email one-time-code login UI and Supabase session gate are implemented. They activate only when the Supabase project URL and public anon/publishable key are supplied at build time.
 - Profile name, about text and primary username now load from and save to Supabase when configured. Cover art and avatar presentation are still local UI only.
 - Profile editing UI is currently local to the device; it is not synchronized to a server yet.
 - GitHub Actions checks Dart analysis, runs widget tests and builds Android and Windows release artifacts.
 - GitHub Actions also attempts an unsigned iOS release build on macOS runners.
 - Supabase schema and secure chat operations are included in `supabase/migrations/`. The client now has chat creation, direct conversations, group member lists, invitations by username, role management and ownership transfer; these features require the Supabase project and migrations to be activated.
-- **The backend is not connected yet.** Login, real-time messaging, multi-device sync, gifts and marketplace actions are not live features at this stage.
+- **The backend is not connected yet.** Login, real-time messaging, multi-device sync and live gift data are not available until a Supabase project is configured and migrations are applied. The catalog and collection screens are client UI backed by the planned schema.
 
 ## Build artifacts
 
