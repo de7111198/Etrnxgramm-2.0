@@ -88,11 +88,11 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ),
         const SizedBox(height: 18),
-        Center(
+        const Center(
           child: CircleAvatar(
             radius: 48,
-            backgroundColor: const Color(0xFF9875FF),
-            child: const Icon(Icons.person, size: 52),
+            backgroundColor: Color(0xFF9875FF),
+            child: Icon(Icons.person, size: 52),
           ),
         ),
         const SizedBox(height: 12),
@@ -137,9 +137,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   gradient: LinearGradient(colors: covers[index]),
                   borderRadius: BorderRadius.circular(15),
                   border: Border.all(
-                    color: cover == index
-                        ? Colors.white
-                        : Colors.transparent,
+                    color: cover == index ? Colors.white : Colors.transparent,
                     width: 3,
                   ),
                 ),
