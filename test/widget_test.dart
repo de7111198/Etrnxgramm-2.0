@@ -1,10 +1,11 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:etrnxgram/main.dart';
 
 void main() {
   testWidgets('Etrnxgram opens and switches between main sections',
       (tester) async {
-    await tester.pumpWidget(const EtrnxgramApp());
+    await tester.pumpWidget(const MaterialApp(home: MainScreen()));
 
     expect(find.text('Etrnxgram'), findsOneWidget);
     expect(find.text('Чатов пока нет'), findsOneWidget);
