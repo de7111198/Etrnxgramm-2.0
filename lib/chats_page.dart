@@ -1262,8 +1262,8 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                 ],
               ),
             ),
-          )
-          else
+          ),
+          if (widget.isChannel && !_canPost)
             const SafeArea(
               child: Padding(
                 padding: EdgeInsets.all(12),
