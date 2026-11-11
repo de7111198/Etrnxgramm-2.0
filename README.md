@@ -5,6 +5,7 @@ Etrnxgram is a Flutter messenger project targeting Android and Windows, with And
 ## Current project status
 
 - Flutter app shell with Chats, Gifts, Contacts and Profile tabs.
+- Email one-time-code login UI and Supabase session gate are implemented. They activate only when the Supabase project URL and public anon/publishable key are supplied at build time.
 - Profile editing UI is currently local to the device; it is not synchronized to a server yet.
 - GitHub Actions checks Dart analysis, runs widget tests and builds Android and Windows release artifacts.
 - GitHub Actions also attempts an unsigned iOS release build on macOS runners.
@@ -36,10 +37,10 @@ To activate a backend later:
 1. Create a Supabase project owned by the project maintainer.
 2. Apply both SQL migrations in numerical order using the Supabase SQL Editor or Supabase CLI.
 3. Configure email OTP delivery and allowed redirect URLs in Supabase Auth.
-4. Add the project's public URL and publishable/anon key to the app's build configuration. Never put a service-role key, database password or email-provider secret in the Flutter app or public repository.
+4. Add GitHub Actions repository secrets named `SUPABASE_URL` and `SUPABASE_ANON_KEY` (the public anon/publishable key). The workflow passes them to Android, Windows and iOS builds as compile-time values. Never add a service-role key, database password or email-provider secret to the Flutter app, GitHub Actions build variables, or public repository.
 5. Connect and test the Flutter client and server-side operations before enabling real messaging, gift administration or marketplace actions.
 
-The migrations alone do not create a running backend or make the app connect to Supabase.
+The migrations alone do not create a running backend. Email OTP also requires email delivery and redirect settings to be configured in Supabase Auth. Without the two GitHub secrets, the app deliberately shows a server-not-configured screen instead of pretending that login works.
 
 ## Development
 
