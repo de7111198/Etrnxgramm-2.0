@@ -1,7 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'auth_page.dart';
+import 'supabase_config.dart';
 import 'profile_page.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  if (SupabaseConfig.isConfigured) {
+    await Supabase.initialize(
+      url: SupabaseConfig.url,
+      anonKey: SupabaseConfig.publishableKey,
+    );
+  }
+
   runApp(const EtrnxgramApp());
 }
 
@@ -20,7 +33,25 @@ class EtrnxgramApp extends StatelessWidget {
           secondary: Color(0xFFB58AFF),
         ),
       ),
-      home: const MainScreen(),
+      home: SupabaseConfig.isConfigured
+          ? const AuthGate()
+          : const BackendSetupPage(),
+    );
+  }
+}
+
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final client = Supabase.instance.client;
+    return StreamBuilder<AuthState>(
+      stream: client.auth.onAuthStateChange,
+      builder: (context, snapshot) {
+        final session = snapshot.data?.session ?? client.auth.currentSession;
+        return session == null ? const AuthPage() : const MainScreen();
+      },
     );
   }
 }
@@ -42,6 +73,10 @@ class _MainScreenState extends State<MainScreen> {
     ProfilePage(),
   ];
 
+  Future<void> _signOut() async {
+    await Supabase.instance.client.auth.signOut();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -54,6 +89,13 @@ class _MainScreenState extends State<MainScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Выйти',
+            onPressed: _signOut,
+            icon: const Icon(Icons.logout),
+          ),
+        ],
       ),
       body: IndexedStack(index: selected, children: pages),
       bottomNavigationBar: NavigationBar(
