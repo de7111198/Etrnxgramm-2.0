@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -9,155 +10,177 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   String name = 'Etrnx User';
-  String username = 'etrnx';
-  String about = 'Добро пожаловать в Etrnxgram!';
-  int cover = 0;
+  String username = '';
+  String about = '';
+  bool loading = true;
+  bool saving = false;
+  String? error;
 
-  final covers = [
-    [const Color(0xFF6548D8), const Color(0xFF172B65)],
-    [const Color(0xFFCE579A), const Color(0xFF573AAB)],
-    [const Color(0xFF168D91), const Color(0xFF173B68)],
-    [const Color(0xFFE18B42), const Color(0xFF7B345E)],
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
 
-  void editProfile() {
-    final nameController = TextEditingController(text: name);
-    final usernameController = TextEditingController(text: username);
-    final aboutController = TextEditingController(text: about);
+  Future<void> _load() async {
+    try {
+      final db = Supabase.instance.client;
+      final user = db.auth.currentUser;
+      if (user == null) return;
+      final profile = await db.from('profiles')
+          .select('display_name, about').eq('id', user.id).maybeSingle();
+      final handle = await db.from('usernames')
+          .select('username').eq('user_id', user.id)
+          .eq('is_primary', true).maybeSingle();
+      if (!mounted) return;
+      setState(() {
+        name = profile?['display_name'] as String? ?? name;
+        about = profile?['about'] as String? ?? '';
+        username = handle?['username'] as String? ?? '';
+        loading = false;
+        error = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        loading = false;
+        error = 'Не удалось загрузить профиль. Проверь подключение.';
+      });
+    }
+  }
 
-    showDialog(
+  Future<void> _save(String newName, String newUsername, String newAbout) async {
+    final db = Supabase.instance.client;
+    final user = db.auth.currentUser;
+    if (user == null) return;
+    setState(() => saving = true);
+    try {
+      if (newUsername.trim().isNotEmpty) {
+        await db.rpc('set_primary_username',
+            params: {'username_value': newUsername.trim()});
+      }
+      await db.from('profiles').update({
+        'display_name': newName.trim(),
+        'about': newAbout.trim(),
+      }).eq('id', user.id);
+      if (!mounted) return;
+      setState(() {
+        name = newName.trim();
+        about = newAbout.trim();
+        if (newUsername.trim().isNotEmpty) {
+          username = newUsername.trim().toLowerCase();
+        }
+        saving = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Профиль сохранён на сервере')),
+      );
+    } on PostgrestException catch (e) {
+      if (!mounted) return;
+      setState(() => saving = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось сохранить профиль')),
+      );
+    }
+  }
+
+  Future<void> _edit() async {
+    final n = TextEditingController(text: name);
+    final u = TextEditingController(text: username);
+    final a = TextEditingController(text: about);
+    await showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Редактировать профиль'),
         content: SingleChildScrollView(
-          child: Column(
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Имя'),
-              ),
-              TextField(
-                controller: usernameController,
-                decoration: const InputDecoration(labelText: 'Username'),
-              ),
-              TextField(
-                controller: aboutController,
-                decoration: const InputDecoration(labelText: 'О себе'),
-              ),
-            ],
-          ),
+          child: Column(children: [
+            TextField(controller: n, maxLength: 64,
+                decoration: const InputDecoration(labelText: 'Имя')),
+            TextField(controller: u, maxLength: 32, autocorrect: false,
+                decoration: const InputDecoration(
+                    labelText: 'Основной username', prefixText: '@')),
+            TextField(controller: a, maxLength: 160,
+                decoration: const InputDecoration(labelText: 'О себе')),
+          ]),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
+              onPressed: saving ? null : () => Navigator.pop(dialogContext),
+              child: const Text('Отмена')),
           FilledButton(
-            onPressed: () {
-              setState(() {
-                name = nameController.text;
-                username = usernameController.text;
-                about = aboutController.text;
-              });
-              Navigator.pop(context);
+            onPressed: saving ? null : () async {
+              if (n.text.trim().isEmpty) return;
+              Navigator.pop(dialogContext);
+              await _save(n.text, u.text, a.text);
             },
             child: const Text('Сохранить'),
           ),
         ],
       ),
     );
+    n.dispose();
+    u.dispose();
+    a.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (loading) return const Center(child: CircularProgressIndicator());
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
+        if (error != null)
+          ListTile(
+            leading: const Icon(Icons.cloud_off),
+            title: Text(error!),
+            trailing: IconButton(onPressed: _load,
+                icon: const Icon(Icons.refresh)),
+          ),
         Container(
           height: 145,
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: covers[cover],
+            gradient: const LinearGradient(
+              colors: [Color(0xFF6548D8), Color(0xFF172B65)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(24),
           ),
-          child: const Center(
-            child: Icon(Icons.auto_awesome, size: 55),
-          ),
+          child: const Center(child: Icon(Icons.auto_awesome, size: 55)),
         ),
         const SizedBox(height: 18),
-        const Center(
-          child: CircleAvatar(
-            radius: 48,
-            backgroundColor: Color(0xFF9875FF),
-            child: Icon(Icons.person, size: 52),
-          ),
-        ),
+        const Center(child: CircleAvatar(
+          radius: 48, backgroundColor: Color(0xFF9875FF),
+          child: Icon(Icons.person, size: 52),
+        )),
         const SizedBox(height: 12),
-        Center(
-          child: Text(
-            name,
-            style: const TextStyle(
-              fontSize: 25,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-        Center(
-          child: Text(
-            '@$username',
-            style: const TextStyle(color: Colors.purpleAccent),
-          ),
-        ),
+        Center(child: Text(name, style: const TextStyle(
+            fontSize: 25, fontWeight: FontWeight.bold))),
+        if (username.isNotEmpty)
+          Center(child: Text('@$username',
+              style: const TextStyle(color: Colors.purpleAccent))),
         const SizedBox(height: 8),
         Center(child: Text(about, textAlign: TextAlign.center)),
         const SizedBox(height: 22),
         FilledButton.icon(
-          onPressed: editProfile,
+          onPressed: saving ? null : _edit,
           icon: const Icon(Icons.edit),
-          label: const Text('Редактировать профиль'),
-        ),
-        const SizedBox(height: 20),
-        const Text(
-          'Выбрать обложку',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 12,
-          children: List.generate(covers.length, (index) {
-            return GestureDetector(
-              onTap: () => setState(() => cover = index),
-              child: Container(
-                width: 58,
-                height: 58,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: covers[index]),
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(
-                    color: cover == index ? Colors.white : Colors.transparent,
-                    width: 3,
-                  ),
-                ),
-              ),
-            );
-          }),
+          label: Text(saving ? 'Сохранение...' : 'Редактировать профиль'),
         ),
         const SizedBox(height: 28),
-        const Text(
-          'Моя коллекция подарков',
-          style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
-        ),
+        const Text('Моя коллекция подарков',
+            style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
-        const Card(
-          child: ListTile(
-            leading: Icon(Icons.card_giftcard, color: Colors.purpleAccent),
-            title: Text('Подарков пока нет'),
-            subtitle: Text('Полученные подарки появятся здесь'),
-          ),
-        ),
+        const Card(child: ListTile(
+          leading: Icon(Icons.card_giftcard, color: Colors.purpleAccent),
+          title: Text('Подарков пока нет'),
+          subtitle: Text('Полученные подарки появятся здесь'),
+        )),
       ],
     );
   }
