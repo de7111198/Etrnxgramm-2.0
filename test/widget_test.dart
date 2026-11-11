@@ -20,4 +20,12 @@ void main() {
     expect(find.text('Etrnx User'), findsOneWidget);
     expect(find.text('Редактировать профиль'), findsOneWidget);
   });
+  testWidgets('shows backend setup instead of a fake login when unconfigured',
+      (tester) async {
+    await tester.pumpWidget(const EtrnxgramApp());
+
+    expect(find.text('Сервер ещё не настроен'), findsOneWidget);
+    expect(find.text('Вход в Etrnxgram'), findsNothing);
+  });
+
 }
