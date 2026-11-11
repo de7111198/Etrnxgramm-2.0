@@ -60,7 +60,7 @@ class _ChatsPageState extends State<ChatsPage> {
 
     final names = <String, String>{
       for (final row in profileRows)
-        row['id'] as String: row['display_name'] as String,
+        row['id'] as String: (row['display_name'] as String?) ?? 'Пользователь',
     };
     final usernames = <String, String>{
       for (final row in usernameRows)
@@ -132,6 +132,7 @@ class _ChatsPageState extends State<ChatsPage> {
         builder: (_) => ChatThreadPage(
           chatId: chatId as String,
           title: title.trim(),
+          isGroup: true,
         ),
       ));
     } catch (error) {
@@ -294,10 +295,11 @@ class _ChatsPageState extends State<ChatsPage> {
 }
 
 class ChatThreadPage extends StatefulWidget {
-  const ChatThreadPage({super.key, required this.chatId, required this.title});
+  const ChatThreadPage({super.key, required this.chatId, required this.title, this.isGroup = false});
 
   final String chatId;
   final String title;
+  final bool isGroup;
 
   @override
   State<ChatThreadPage> createState() => _ChatThreadPageState();
@@ -308,6 +310,60 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
   bool _sending = false;
 
   SupabaseClient get _client => Supabase.instance.client;
+
+
+  Future<void> _addMember() async {
+    final controller = TextEditingController();
+    final username = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Добавить участника'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Имя пользователя',
+            prefixText: '@',
+          ),
+          onSubmitted: (value) => Navigator.pop(dialogContext, value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text),
+            child: const Text('Добавить'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    final normalized = username?.trim().replaceFirst(RegExp(r'^@'), '');
+    if (normalized == null || normalized.isEmpty || !mounted) return;
+    try {
+      final profile = await _client
+          .from('usernames')
+          .select('user_id')
+          .ilike('username', normalized)
+          .maybeSingle();
+      if (profile == null) throw Exception('Пользователь не найден');
+      await _client.rpc('add_chat_member', params: {
+        'target_chat': widget.chatId,
+        'new_member': profile['user_id'],
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('@$normalized добавлен(а) в группу')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось добавить участника: $error')),
+      );
+    }
+  }
 
   Future<void> _send() async {
     final text = _controller.text.trim();
@@ -340,7 +396,17 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
   Widget build(BuildContext context) {
     final userId = _client.auth.currentUser!.id;
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title)),
+      appBar: AppBar(
+        title: Text(widget.title),
+        actions: [
+          if (widget.isGroup)
+            IconButton(
+              tooltip: 'Добавить участника',
+              onPressed: _addMember,
+              icon: const Icon(Icons.person_add_alt_1),
+            ),
+        ],
+      ),
       body: Column(
         children: [
           Expanded(
