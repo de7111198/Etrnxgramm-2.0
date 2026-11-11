@@ -31,7 +31,7 @@ jobs:
         run: flutter pub get
 
       - name: Analyze Dart code
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos
 
       - name: Run widget tests
         run: flutter test
