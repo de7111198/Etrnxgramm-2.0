@@ -484,7 +484,8 @@ class _ChatsPageState extends State<ChatsPage> {
                         value: _showArchived ? 'unarchive' : 'archive',
                         child: Text(_showArchived ? 'Вернуть из архива' : 'В архив'),
                       ),
-                      ),
+                    ],
+                  ),
                     ],
                   ),
                   onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
