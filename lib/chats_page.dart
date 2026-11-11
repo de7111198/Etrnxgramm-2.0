@@ -75,13 +75,17 @@ class _ChatsPageState extends State<ChatsPage> {
 
     final settings = await _client
         .from('chat_user_settings')
-        .select('chat_id, archived_at')
+        .select('chat_id, archived_at, muted_until')
         .eq('user_id', userId)
         .inFilter('chat_id', ids);
     final archivedIds = settings
         .where((row) => row['archived_at'] != null)
         .map((row) => row['chat_id'] as String)
         .toSet();
+    final mutedIds = settings.where((row) {
+      final raw = row['muted_until'] as String?;
+      return raw != null && DateTime.tryParse(raw)?.isAfter(DateTime.now().toUtc()) == true;
+    }).map((row) => row['chat_id'] as String).toSet();
 
     return rows.map((chat) {
       final result = Map<String, dynamic>.from(chat);
@@ -99,8 +103,28 @@ class _ChatsPageState extends State<ChatsPage> {
         result['display_title'] = chat['title'] ?? 'Группа';
         result['display_subtitle'] = chat['kind'] == 'channel' ? 'Канал' : 'Групповой чат';
       }
+      result['is_muted'] = mutedIds.contains(chat['id']);
       return result;
     }).where((chat) => archivedIds.contains(chat['id']) == _showArchived).toList();
+  }
+
+  Future<void> _setMuted(Map<String, dynamic> chat, bool muted) async {
+    try {
+      await _client.from('chat_user_settings').upsert({
+        'chat_id': chat['id'],
+        'user_id': _client.auth.currentUser!.id,
+        'muted_until': muted
+            ? DateTime.now().toUtc().add(const Duration(hours: 8)).toIso8601String()
+            : null,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      });
+      _reload();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось изменить уведомления: $error')),
+      );
+    }
   }
 
   Future<void> _setArchived(Map<String, dynamic> chat, bool archived) async {
@@ -400,8 +424,20 @@ class _ChatsPageState extends State<ChatsPage> {
                   title: Text(title),
                   subtitle: Text(subtitle),
                   trailing: PopupMenuButton<String>(
-                    onSelected: (value) => _setArchived(chat, value == 'archive'),
+                    onSelected: (value) {
+                      if (value == 'archive' || value == 'unarchive') {
+                        _setArchived(chat, value == 'archive');
+                      } else if (value == 'mute' || value == 'unmute') {
+                        _setMuted(chat, value == 'mute');
+                      }
+                    },
                     itemBuilder: (_) => [
+                      PopupMenuItem(
+                        value: chat['is_muted'] == true ? 'unmute' : 'mute',
+                        child: Text(chat['is_muted'] == true
+                            ? 'Включить уведомления'
+                            : 'Отключить на 8 часов'),
+                      ),
                       PopupMenuItem(
                         value: _showArchived ? 'unarchive' : 'archive',
                         child: Text(_showArchived ? 'Вернуть из архива' : 'В архив'),
