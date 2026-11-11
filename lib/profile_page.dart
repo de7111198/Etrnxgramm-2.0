@@ -18,6 +18,7 @@ class _ProfilePageState extends State<ProfilePage> {
   bool loading = true;
   bool saving = false;
   bool isOwner = false;
+  List<Map<String, dynamic>> recentGifts = [];
   String? error;
 
   @override
@@ -43,6 +44,12 @@ class _ProfilePageState extends State<ProfilePage> {
       final handle = await db.from('usernames')
           .select('username').eq('user_id', user.id)
           .eq('is_primary', true).maybeSingle();
+      final gifts = await db
+          .from('gifts')
+          .select('id, serial_number, background_key, symbol_key, model:gift_models(name, rarity)')
+          .eq('owner_id', user.id)
+          .order('acquired_at', ascending: false)
+          .limit(4);
       var ownerAccess = false;
       try {
         ownerAccess = await db.rpc('is_platform_owner') as bool;
@@ -55,6 +62,7 @@ class _ProfilePageState extends State<ProfilePage> {
         about = profile?['about'] as String? ?? '';
         username = handle?['username'] as String? ?? '';
         isOwner = ownerAccess;
+        recentGifts = gifts.map((row) => Map<String, dynamic>.from(row)).toList();
         loading = false;
         error = null;
       });
@@ -207,11 +215,35 @@ class _ProfilePageState extends State<ProfilePage> {
         const Text('Моя коллекция подарков',
             style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
-        const Card(child: ListTile(
-          leading: Icon(Icons.card_giftcard, color: Colors.purpleAccent),
-          title: Text('Подарков пока нет'),
-          subtitle: Text('Полученные подарки появятся здесь'),
-        )),
+        if (recentGifts.isEmpty)
+          const Card(child: ListTile(
+            leading: Icon(Icons.card_giftcard, color: Colors.purpleAccent),
+            title: Text('Подарков пока нет'),
+            subtitle: Text('Полученные подарки появятся здесь'),
+          ))
+        else
+          ...recentGifts.map((gift) {
+            final model = gift['model'] is Map
+                ? Map<String, dynamic>.from(gift['model'] as Map)
+                : <String, dynamic>{};
+            final serial = gift['serial_number'];
+            final details = [
+              if (serial != null) '№$serial',
+              if (gift['background_key'] != null) 'Фон: ${gift['background_key']}',
+              if (gift['symbol_key'] != null) 'Символ: ${gift['symbol_key']}',
+            ].join(' · ');
+            return Card(
+              child: ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFF302746),
+                  child: Icon(Icons.card_giftcard, color: Color(0xFFB99AFF)),
+                ),
+                title: Text(model['name'] as String? ?? 'Подарок'),
+                subtitle: Text(details.isEmpty ? 'В коллекции' : details),
+                trailing: Text(model['rarity'] as String? ?? ''),
+              ),
+            );
+          }),
       ],
     );
   }
