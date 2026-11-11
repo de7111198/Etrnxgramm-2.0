@@ -6,6 +6,7 @@ Etrnxgram is a Flutter messenger project targeting Android and Windows, with And
 
 - Flutter app shell with Chats, Gifts, Contacts and Profile tabs.
 - Email one-time-code login UI and Supabase session gate are implemented. They activate only when the Supabase project URL and public anon/publishable key are supplied at build time.
+- Profile name, about text and primary username now load from and save to Supabase when configured. Cover art and avatar presentation are still local UI only.
 - Profile editing UI is currently local to the device; it is not synchronized to a server yet.
 - GitHub Actions checks Dart analysis, runs widget tests and builds Android and Windows release artifacts.
 - GitHub Actions also attempts an unsigned iOS release build on macOS runners.
@@ -29,13 +30,14 @@ Migrations are in `supabase/migrations/`:
 - `0002_chat_operations.sql` adds authenticated database functions for creating direct/group chats, adding group members as an owner/admin, and leaving chats. These functions check the caller's identity and permissions.
 - `0003_chat_hardening.sql` adds owner-controlled group/channel ownership transfer and serializes membership changes.
 - `0004_remove_group_member_cap.sql` removes the fixed group member-count cap while keeping membership changes restricted to owners/admins.
+- `0005_profile_sync.sql` adds a transactional primary-username operation and profile update timestamp trigger.
 
 Gift grants, transfers, marketplace settlement and owner/admin management still require trusted server-side operations with authorization and audit logging. There is no owner account or hidden default administrator.
 
 To activate a backend later:
 
 1. Create a Supabase project owned by the project maintainer.
-2. Apply both SQL migrations in numerical order using the Supabase SQL Editor or Supabase CLI.
+2. Apply all SQL migrations in numerical order using the Supabase SQL Editor or Supabase CLI.
 3. Configure email OTP delivery and allowed redirect URLs in Supabase Auth.
 4. Add GitHub Actions repository secrets named `SUPABASE_URL` and `SUPABASE_ANON_KEY` (the public anon/publishable key). The workflow passes them to Android, Windows and iOS builds as compile-time values. Never add a service-role key, database password or email-provider secret to the Flutter app, GitHub Actions build variables, or public repository.
 5. Connect and test the Flutter client and server-side operations before enabling real messaging, gift administration or marketplace actions.
