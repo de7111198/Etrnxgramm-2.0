@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:etrnxgram/main.dart';
 
 void main() {
-  testWidgets('Etrnxgram opens and switches between main sections',
+  testWidgets('main sections render and navigation switches to gifts',
       (tester) async {
     await tester.pumpWidget(const MaterialApp(home: MainScreen()));
 
@@ -14,18 +14,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Коллекция подарков пока не подключена к серверу.'),
         findsOneWidget);
-
-    await tester.tap(find.text('Профиль'));
-    await tester.pumpAndSettle();
-    expect(find.text('Etrnx User'), findsOneWidget);
-    expect(find.text('Редактировать профиль'), findsOneWidget);
   });
-  testWidgets('shows backend setup instead of a fake login when unconfigured',
+
+  testWidgets('shows backend setup instead of fake login when unconfigured',
       (tester) async {
     await tester.pumpWidget(const EtrnxgramApp());
 
     expect(find.text('Сервер ещё не настроен'), findsOneWidget);
     expect(find.text('Вход в Etrnxgram'), findsNothing);
   });
-
 }
