@@ -649,6 +649,189 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
     }
   }
 
+  Future<void> _showMessageActions(
+      Map<String, dynamic> message, bool mine) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.reply),
+              title: const Text('Ответить'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                setState(() => _replyTo = message);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.forward),
+              title: const Text('Переслать'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _forwardMessage(message);
+              },
+            ),
+            if (mine)
+              ListTile(
+                leading: const Icon(Icons.edit_outlined),
+                title: const Text('Изменить'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _editMessage(message);
+                },
+              ),
+            if (mine)
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                title: const Text('Удалить'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _deleteMessage(message);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editMessage(Map<String, dynamic> message) async {
+    final controller = TextEditingController(text: message['body'] as String? ?? '');
+    final replacement = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Изменить сообщение'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          minLines: 1,
+          maxLines: 5,
+          maxLength: 10000,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text),
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (replacement == null || replacement.trim().isEmpty) return;
+    try {
+      await _client.rpc('edit_chat_message', params: {
+        'target_message': message['id'],
+        'replacement_text': replacement,
+      });
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось изменить сообщение: $error')),
+      );
+    }
+  }
+
+  Future<void> _deleteMessage(Map<String, dynamic> message) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Удалить сообщение?'),
+        content: const Text('Сообщение будет удалено из этого чата.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Удалить'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await _client.rpc('delete_chat_message', params: {
+        'target_message': message['id'],
+      });
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось удалить сообщение: $error')),
+      );
+    }
+  }
+
+  Future<void> _forwardMessage(Map<String, dynamic> message) async {
+    try {
+      final userId = _client.auth.currentUser!.id;
+      final memberships = await _client
+          .from('chat_members')
+          .select('chat_id')
+          .eq('user_id', userId);
+      final chatIds = memberships.map((row) => row['chat_id'] as String).toList();
+      if (chatIds.isEmpty) return;
+      final chats = await _client
+          .from('chats')
+          .select('id, kind, title')
+          .inFilter('id', chatIds)
+          .order('updated_at', ascending: false);
+      final otherMembers = await _client
+          .from('chat_members')
+          .select('chat_id, user_id')
+          .inFilter('chat_id', chatIds)
+          .neq('user_id', userId);
+      final otherIds = otherMembers.map((row) => row['user_id'] as String).toSet().toList();
+      final profiles = otherIds.isEmpty
+          ? <Map<String, dynamic>>[]
+          : await _client.from('profiles')
+              .select('id, display_name').inFilter('id', otherIds);
+      final names = <String, String>{
+        for (final row in profiles)
+          row['id'] as String: row['display_name'] as String? ?? 'Пользователь',
+      };
+      final othersByChat = <String, List<String>>{};
+      for (final row in otherMembers) {
+        othersByChat.putIfAbsent(row['chat_id'] as String, () => [])
+            .add(row['user_id'] as String);
+      }
+      if (!mounted) return;
+      final destination = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => SimpleDialog(
+          title: const Text('Переслать в...'),
+          children: chats.map((chat) {
+            final id = chat['id'] as String;
+            final isDirect = chat['kind'] == 'direct';
+            final others = othersByChat[id] ?? [];
+            final title = isDirect
+                ? (others.isEmpty ? 'Личный чат' : names[others.first] ?? 'Пользователь')
+                : (chat['title'] as String? ?? 'Группа');
+            return SimpleDialogOption(
+              onPressed: () => Navigator.pop(dialogContext, id),
+              child: Text(title),
+            );
+          }).toList(),
+        ),
+      );
+      if (destination == null) return;
+      await _client.rpc('forward_chat_message', params: {
+        'source_message': message['id'],
+        'destination_chat': destination,
+      });
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось переслать сообщение: $error')),
+      );
+    }
+  }
+
   Future<void> _toggleReaction(String messageId, String emoji) async {
     try {
       await _client.rpc('toggle_message_reaction', params: {
@@ -747,7 +930,7 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                     return Align(
                       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
                       child: GestureDetector(
-                        onLongPress: () => setState(() => _replyTo = message),
+                        onLongPress: () => _showMessageActions(message, mine),
                         child: Container(
                         constraints: const BoxConstraints(maxWidth: 300),
                         margin: const EdgeInsets.symmetric(vertical: 4),
@@ -776,7 +959,17 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                                   style: const TextStyle(fontSize: 12, color: Colors.white70),
                                 ),
                               ),
+                            if (message['forwarded_from'] != null)
+                              const Padding(
+                                padding: EdgeInsets.only(bottom: 4),
+                                child: Text('Пересланное сообщение', style: TextStyle(fontSize: 11, color: Colors.white70)),
+                              ),
                             Text(message['body'] as String),
+                            if (message['edited_at'] != null)
+                              const Align(
+                                alignment: Alignment.centerRight,
+                                child: Text('изменено', style: TextStyle(fontSize: 10, color: Colors.white60)),
+                              ),
                             const SizedBox(height: 6),
                             StreamBuilder<List<Map<String, dynamic>>>(
                               stream: _client
