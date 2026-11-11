@@ -282,7 +282,7 @@ class _ChatsPageState extends State<ChatsPage> {
                   title: Text(title),
                   subtitle: Text(subtitle),
                   onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                    builder: (_) => ChatThreadPage(chatId: chat['id'] as String, title: title),
+                    builder: (_) => ChatThreadPage(chatId: chat['id'] as String, title: title, isGroup: !isDirect),
                   )),
                 );
               },
@@ -311,6 +311,124 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
 
   SupabaseClient get _client => Supabase.instance.client;
 
+
+
+  Future<void> _showMembers() async {
+    try {
+      final memberships = await _client
+          .from('chat_members')
+          .select('user_id, role')
+          .eq('chat_id', widget.chatId);
+      final ids = memberships.map((row) => row['user_id'] as String).toList();
+      final profiles = await _client
+          .from('profiles')
+          .select('id, display_name')
+          .inFilter('id', ids);
+      final usernames = await _client
+          .from('usernames')
+          .select('user_id, username')
+          .inFilter('user_id', ids)
+          .eq('is_primary', true);
+      final names = <String, String>{
+        for (final row in profiles)
+          row['id'] as String: (row['display_name'] as String?) ?? 'Пользователь',
+      };
+      final handles = <String, String>{
+        for (final row in usernames)
+          row['user_id'] as String: row['username'] as String,
+      };
+      if (!mounted) return;
+      final currentUserId = _client.auth.currentUser!.id;
+      final currentRole = memberships.firstWhere(
+        (row) => row['user_id'] == currentUserId,
+        orElse: () => <String, dynamic>{'role': 'member'},
+      )['role'];
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (sheetContext) => SafeArea(
+          child: SizedBox(
+            height: MediaQuery.of(sheetContext).size.height * 0.65,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text('Участники группы · ${memberships.length}',
+                      style: Theme.of(sheetContext).textTheme.titleLarge),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: memberships.length,
+                    itemBuilder: (context, index) {
+                      final member = memberships[index];
+                      final id = member['user_id'] as String;
+                      final role = member['role'] as String;
+                      final label = role == 'owner'
+                          ? 'Владелец'
+                          : role == 'admin' ? 'Администратор' : 'Участник';
+                      return ListTile(
+                        leading: const CircleAvatar(child: Icon(Icons.person_outline)),
+                        title: Text(names[id] ?? 'Пользователь'),
+                        subtitle: Text(handles[id] == null
+                            ? label
+                            : '@${handles[id]} · $label'),
+                        trailing: currentRole == 'owner' && id != currentUserId && role != 'owner'
+                            ? TextButton(
+                                onPressed: () async {
+                                  Navigator.pop(sheetContext);
+                                  final confirmed = await showDialog<bool>(
+                                    context: this.context,
+                                    builder: (dialogContext) => AlertDialog(
+                                      title: const Text('Передать владение?'),
+                                      content: Text('Владелец группы изменится на ${names[id] ?? 'этого участника'}.'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(dialogContext, false),
+                                          child: const Text('Отмена'),
+                                        ),
+                                        FilledButton(
+                                          onPressed: () => Navigator.pop(dialogContext, true),
+                                          child: const Text('Передать'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (confirmed != true || !mounted) return;
+                                  try {
+                                    await _client.rpc('transfer_chat_ownership', params: {
+                                      'target_chat': widget.chatId,
+                                      'new_owner': id,
+                                    });
+                                    if (!mounted) return;
+                                    ScaffoldMessenger.of(this.context).showSnackBar(
+                                      const SnackBar(content: Text('Владение группой передано')),
+                                    );
+                                  } catch (error) {
+                                    if (!mounted) return;
+                                    ScaffoldMessenger.of(this.context).showSnackBar(
+                                      SnackBar(content: Text('Не удалось передать владение: $error')),
+                                    );
+                                  }
+                                },
+                                child: const Text('Передать'),
+                              )
+                            : null,
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось загрузить участников: $error')),
+      );
+    }
+  }
 
   Future<void> _addMember() async {
     final controller = TextEditingController();
@@ -399,12 +517,18 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
       appBar: AppBar(
         title: Text(widget.title),
         actions: [
-          if (widget.isGroup)
+          if (widget.isGroup) ...[
+            IconButton(
+              tooltip: 'Участники группы',
+              onPressed: _showMembers,
+              icon: const Icon(Icons.people_outline),
+            ),
             IconButton(
               tooltip: 'Добавить участника',
               onPressed: _addMember,
               icon: const Icon(Icons.person_add_alt_1),
             ),
+          ],
         ],
       ),
       body: Column(
