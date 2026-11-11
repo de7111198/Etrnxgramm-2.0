@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'supabase_config.dart';
@@ -76,6 +77,71 @@ class _ProfilePageState extends State<ProfilePage> {
         loading = false;
         error = 'Не удалось загрузить профиль. Проверь подключение.';
       });
+    }
+  }
+
+  Future<void> _uploadProfileImage({required bool cover}) async {
+    if (!SupabaseConfig.isConfigured) return;
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) return;
+      final file = result.files.single;
+      final bytes = file.bytes;
+      if (bytes == null || bytes.isEmpty) {
+        throw Exception('Не удалось прочитать выбранный файл');
+      }
+      if (bytes.length > 5 * 1024 * 1024) {
+        throw Exception('Размер изображения не должен превышать 5 МБ');
+      }
+      final extension = (file.extension ?? '').toLowerCase();
+      const mimeTypes = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'webp': 'image/webp',
+      };
+      final mimeType = mimeTypes[extension];
+      if (mimeType == null) {
+        throw Exception('Поддерживаются только JPG, PNG и WebP');
+      }
+      if (!mounted) return;
+      setState(() => saving = true);
+      final storedExtension = extension == 'jpeg' ? 'jpg' : extension;
+      final path = '${user.id}/${cover ? 'cover' : 'avatar'}.$storedExtension';
+      final storage = Supabase.instance.client.storage.from('profile-media');
+      await storage.uploadBinary(
+        path,
+        bytes,
+        fileOptions: FileOptions(contentType: mimeType, upsert: true),
+      );
+      final url = storage.getPublicUrl(path);
+      await Supabase.instance.client.from('profiles').update({
+        cover ? 'cover_url' : 'avatar_url': url,
+      }).eq('id', user.id);
+      if (!mounted) return;
+      setState(() {
+        if (cover) {
+          coverUrl = url;
+        } else {
+          avatarUrl = url;
+        }
+        saving = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(cover ? 'Обложка обновлена' : 'Аватар обновлён')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось загрузить изображение: $e')),
+      );
     }
   }
 
@@ -215,7 +281,15 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ),
         ),
-        const SizedBox(height: 18),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: saving ? null : () => _uploadProfileImage(cover: true),
+            icon: const Icon(Icons.wallpaper),
+            label: const Text('Изменить обложку'),
+          ),
+        ),
+        const SizedBox(height: 6),
         Center(
           child: ClipOval(
             child: avatarUrl.isEmpty
@@ -237,7 +311,12 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
           ),
         ),
-        const SizedBox(height: 12),
+        TextButton.icon(
+          onPressed: saving ? null : () => _uploadProfileImage(cover: false),
+          icon: const Icon(Icons.add_a_photo_outlined),
+          label: const Text('Изменить аватар'),
+        ),
+        const SizedBox(height: 6),
         Center(child: Text(name, style: const TextStyle(
             fontSize: 25, fontWeight: FontWeight.bold))),
         if (username.isNotEmpty)
