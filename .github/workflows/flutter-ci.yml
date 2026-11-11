@@ -37,7 +37,10 @@ jobs:
         run: flutter test
 
       - name: Build release APK
-        run: flutter build apk --release
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: flutter build apk --release --dart-define=SUPABASE_URL="$SUPABASE_URL" --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
@@ -69,7 +72,10 @@ jobs:
         run: flutter pub get
 
       - name: Build Windows release
-        run: flutter build windows --release
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: flutter build windows --release --dart-define=SUPABASE_URL="$env:SUPABASE_URL" --dart-define=SUPABASE_ANON_KEY="$env:SUPABASE_ANON_KEY"
 
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
@@ -98,7 +104,10 @@ jobs:
         run: flutter pub get
 
       - name: Build iOS app without code signing
-        run: flutter build ios --release --no-codesign
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: flutter build ios --release --no-codesign --dart-define=SUPABASE_URL="$SUPABASE_URL" --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
 
       - name: Upload unsigned iOS app
         uses: actions/upload-artifact@v4
