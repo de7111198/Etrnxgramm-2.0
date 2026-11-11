@@ -12,6 +12,7 @@ class ChatsPage extends StatefulWidget {
 
 class _ChatsPageState extends State<ChatsPage> {
   late Future<List<Map<String, dynamic>>> _chats;
+  bool _showArchived = false;
 
   SupabaseClient get _client => Supabase.instance.client;
 
@@ -72,6 +73,16 @@ class _ChatsPageState extends State<ChatsPage> {
           .add(row['user_id'] as String);
     }
 
+    final settings = await _client
+        .from('chat_user_settings')
+        .select('chat_id, archived_at')
+        .eq('user_id', userId)
+        .inFilter('chat_id', ids);
+    final archivedIds = settings
+        .where((row) => row['archived_at'] != null)
+        .map((row) => row['chat_id'] as String)
+        .toSet();
+
     return rows.map((chat) {
       final result = Map<String, dynamic>.from(chat);
       if (chat['kind'] == 'direct') {
@@ -89,7 +100,24 @@ class _ChatsPageState extends State<ChatsPage> {
         result['display_subtitle'] = chat['kind'] == 'channel' ? 'Канал' : 'Групповой чат';
       }
       return result;
-    }).toList();
+    }).where((chat) => archivedIds.contains(chat['id']) == _showArchived).toList();
+  }
+
+  Future<void> _setArchived(Map<String, dynamic> chat, bool archived) async {
+    try {
+      await _client.from('chat_user_settings').upsert({
+        'chat_id': chat['id'],
+        'user_id': _client.auth.currentUser!.id,
+        'archived_at': archived ? DateTime.now().toUtc().toIso8601String() : null,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      });
+      _reload();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось изменить архив: $error')),
+      );
+    }
   }
 
   void _reload() => setState(() => _chats = _loadChats());
@@ -310,11 +338,25 @@ class _ChatsPageState extends State<ChatsPage> {
             }
             final chats = snapshot.data ?? [];
             if (chats.isEmpty) {
-              return ListView(children: const [
-                SizedBox(height: 110),
-                Icon(Icons.forum_outlined, size: 52, color: Color(0xFFB99AFF)),
-                SizedBox(height: 14),
-                Center(child: Text('Чатов пока нет',
+              return ListView(children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: ChoiceChip(
+                      label: Text(_showArchived ? 'Архив' : 'Все чаты'),
+                      selected: _showArchived,
+                      onSelected: (value) {
+                        setState(() {
+                          _showArchived = value;
+                          _reload();
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                SizedBox(height: 100),
+                Center(child: Text(_showArchived ? 'Архив пуст' : 'Чатов пока нет',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
                 Padding(
                   padding: EdgeInsets.all(20),
@@ -324,9 +366,27 @@ class _ChatsPageState extends State<ChatsPage> {
               ]);
             }
             return ListView.builder(
-              itemCount: chats.length,
+              itemCount: chats.length + 1,
               itemBuilder: (context, index) {
-                final chat = chats[index];
+                if (index == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: ChoiceChip(
+                        label: Text(_showArchived ? 'Архив' : 'Все чаты'),
+                        selected: _showArchived,
+                        onSelected: (value) {
+                          setState(() {
+                            _showArchived = value;
+                            _reload();
+                          });
+                        },
+                      ),
+                    ),
+                  );
+                }
+                final chat = chats[index - 1];
                 final isDirect = chat['kind'] == 'direct';
                 final title = chat['display_title'] as String? ??
                     (isDirect ? 'Личный чат' : (chat['title'] as String? ?? 'Группа'));
@@ -339,6 +399,15 @@ class _ChatsPageState extends State<ChatsPage> {
                   ),
                   title: Text(title),
                   subtitle: Text(subtitle),
+                  trailing: PopupMenuButton<String>(
+                    onSelected: (value) => _setArchived(chat, value == 'archive'),
+                    itemBuilder: (_) => [
+                      PopupMenuItem(
+                        value: _showArchived ? 'unarchive' : 'archive',
+                        child: Text(_showArchived ? 'Вернуть из архива' : 'В архив'),
+                      ),
+                    ],
+                  ),
                   onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
                     builder: (_) => ChatThreadPage(chatId: chat['id'] as String, title: title, isGroup: !isDirect, isChannel: chat['kind'] == 'channel'),
                   )),
@@ -351,6 +420,7 @@ class _ChatsPageState extends State<ChatsPage> {
     );
   }
 }
+
 
 class ChatThreadPage extends StatefulWidget {
   const ChatThreadPage({super.key, required this.chatId, required this.title, this.isGroup = false, this.isChannel = false});
