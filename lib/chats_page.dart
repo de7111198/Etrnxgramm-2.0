@@ -874,6 +874,48 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
     }
   }
 
+  Widget _pinnedBanner() {
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _client
+          .from('chat_pins')
+          .stream(primaryKey: ['id'])
+          .eq('chat_id', widget.chatId)
+          .order('pinned_at', ascending: false),
+      builder: (context, snapshot) {
+        final pins = snapshot.data ?? [];
+        if (pins.isEmpty) return const SizedBox.shrink();
+        final pin = pins.first;
+        return FutureBuilder<Map<String, dynamic>?>(
+          future: _client
+              .from('messages')
+              .select('body')
+              .eq('id', pin['message_id'])
+              .maybeSingle(),
+          builder: (context, messageSnapshot) {
+            final body = messageSnapshot.data?['body'] as String? ?? 'Закреплённое сообщение';
+            return Material(
+              color: const Color(0xFF302746),
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.push_pin, color: Color(0xFFB99AFF)),
+                title: const Text('Закреплённое сообщение'),
+                subtitle: Text(body, maxLines: 1, overflow: TextOverflow.ellipsis),
+                trailing: IconButton(
+                  tooltip: 'Открепить',
+                  icon: const Icon(Icons.close),
+                  onPressed: () => _pinMessage(
+                    {'id': pin['message_id']},
+                    false,
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _toggleReaction(String messageId, String emoji) async {
     try {
       await _client.rpc('toggle_message_reaction', params: {
@@ -940,6 +982,7 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
       ),
       body: Column(
         children: [
+          _pinnedBanner(),
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(
               stream: _client
