@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -15,6 +17,7 @@ class _ContactsPageState extends State<ContactsPage> {
   final _searchController = TextEditingController();
   late Future<List<Map<String, dynamic>>> _contacts;
   bool _openingChat = false;
+  Timer? _searchDebounce;
 
   SupabaseClient get _client => Supabase.instance.client;
 
@@ -89,7 +92,11 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   void _search(String _) {
-    setState(() => _contacts = _loadContacts());
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      setState(() => _contacts = _loadContacts());
+    });
   }
 
   Future<void> _openChat(Map<String, dynamic> contact) async {
@@ -119,6 +126,7 @@ class _ContactsPageState extends State<ContactsPage> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
