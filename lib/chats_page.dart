@@ -133,6 +133,7 @@ class _ChatsPageState extends State<ChatsPage> {
           chatId: chatId as String,
           title: title.trim(),
           isGroup: true,
+          isChannel: true,
         ),
       ));
     } catch (error) {
@@ -339,7 +340,7 @@ class _ChatsPageState extends State<ChatsPage> {
                   title: Text(title),
                   subtitle: Text(subtitle),
                   onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                    builder: (_) => ChatThreadPage(chatId: chat['id'] as String, title: title, isGroup: !isDirect),
+                    builder: (_) => ChatThreadPage(chatId: chat['id'] as String, title: title, isGroup: !isDirect, isChannel: chat['kind'] == 'channel'),
                   )),
                 );
               },
@@ -352,11 +353,12 @@ class _ChatsPageState extends State<ChatsPage> {
 }
 
 class ChatThreadPage extends StatefulWidget {
-  const ChatThreadPage({super.key, required this.chatId, required this.title, this.isGroup = false});
+  const ChatThreadPage({super.key, required this.chatId, required this.title, this.isGroup = false, this.isChannel = false});
 
   final String chatId;
   final String title;
   final bool isGroup;
+  final bool isChannel;
 
   @override
   State<ChatThreadPage> createState() => _ChatThreadPageState();
@@ -365,6 +367,7 @@ class ChatThreadPage extends StatefulWidget {
 class _ChatThreadPageState extends State<ChatThreadPage> {
   final _controller = TextEditingController();
   bool _sending = false;
+  bool _canPost = true;
   Map<String, dynamic>? _replyTo;
 
   SupabaseClient get _client => Supabase.instance.client;
@@ -819,9 +822,10 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
               },
             ),
           ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 6, 10, 10),
+          if (!widget.isChannel || _canPost)
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 6, 10, 10),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -885,8 +889,14 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                   ),
                 ],
               ),
+            )
+          else
+            const SafeArea(
+              child: Padding(
+                padding: EdgeInsets.all(12),
+                child: Text('Этот канал доступен для чтения. Публиковать могут только администраторы.'),
+              ),
             ),
-          ),
         ],
       ),
     );
