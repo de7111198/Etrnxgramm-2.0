@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'chats_page.dart';
+import 'supabase_config.dart';
 
 class ContactsPage extends StatefulWidget {
   const ContactsPage({super.key});
@@ -20,7 +21,9 @@ class _ContactsPageState extends State<ContactsPage> {
   @override
   void initState() {
     super.initState();
-    _contacts = _loadContacts();
+    _contacts = SupabaseConfig.isConfigured
+        ? _loadContacts()
+        : Future.value(<Map<String, dynamic>>[]);
   }
 
   Future<List<Map<String, dynamic>>> _loadContacts() async {
@@ -81,7 +84,7 @@ class _ContactsPageState extends State<ContactsPage> {
   }
 
   Future<void> _openChat(Map<String, dynamic> contact) async {
-    if (_openingChat) return;
+    if (_openingChat || !SupabaseConfig.isConfigured) return;
     setState(() => _openingChat = true);
     try {
       final chatId = await _client.rpc('create_direct_chat', params: {
