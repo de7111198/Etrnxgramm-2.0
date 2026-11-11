@@ -14,15 +14,17 @@ class _GiftsPageState extends State<GiftsPage> with SingleTickerProviderStateMix
   late final TabController _tabs;
   late Future<List<Map<String, dynamic>>> _catalog;
   late Future<List<Map<String, dynamic>>> _owned;
+  late Future<List<Map<String, dynamic>>> _history;
 
   SupabaseClient get _client => Supabase.instance.client;
 
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 2, vsync: this);
+    _tabs = TabController(length: 3, vsync: this);
     _catalog = _loadCatalog();
     _owned = _loadOwned();
+    _history = _loadHistory();
   }
 
   Future<List<Map<String, dynamic>>> _loadCatalog() async {
@@ -47,12 +49,87 @@ class _GiftsPageState extends State<GiftsPage> with SingleTickerProviderStateMix
     return rows.map((row) => Map<String, dynamic>.from(row)).toList();
   }
 
+  Future<List<Map<String, dynamic>>> _loadHistory() async {
+    if (!SupabaseConfig.isConfigured) return [];
+    final userId = _client.auth.currentUser!.id;
+    final rows = await _client
+        .from('gift_transfers')
+        .select('id, transfer_kind, created_at, from_user_id, to_user_id, gift:gifts(serial_number, model:gift_models(name))')
+        .or('from_user_id.eq.$userId,to_user_id.eq.$userId')
+        .order('created_at', ascending: false)
+        .limit(100);
+    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
   Future<void> _refresh() async {
     setState(() {
       _catalog = _loadCatalog();
       _owned = _loadOwned();
+      _history = _loadHistory();
     });
-    await Future.wait([_catalog, _owned]);
+    await Future.wait([_catalog, _owned, _history]);
+  }
+
+  Widget _historyList() {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _history,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text('Не удалось загрузить историю: ${snapshot.error}'),
+          ));
+        }
+        final rows = snapshot.data ?? [];
+        if (rows.isEmpty) {
+          return const Center(child: Text('История подарков пока пуста'));
+        }
+        final userId = _client.auth.currentUser!.id;
+        return RefreshIndicator(
+          onRefresh: _refresh,
+          child: ListView.separated(
+            padding: const EdgeInsets.all(12),
+            itemCount: rows.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 6),
+            itemBuilder: (context, index) {
+              final row = rows[index];
+              final gift = row['gift'] is Map
+                  ? Map<String, dynamic>.from(row['gift'] as Map)
+                  : <String, dynamic>{};
+              final model = gift['model'] is Map
+                  ? Map<String, dynamic>.from(gift['model'] as Map)
+                  : <String, dynamic>{};
+              final incoming = row['to_user_id'] == userId;
+              final kind = row['transfer_kind'] as String? ?? 'transfer';
+              final label = kind == 'grant'
+                  ? 'Выдано владельцем'
+                  : kind == 'marketplace'
+                      ? 'Маркетплейс'
+                      : kind == 'revoke'
+                          ? 'Отозвано'
+                          : incoming ? 'Получен подарок' : 'Подарок передан';
+              final date = DateTime.tryParse(row['created_at'] as String? ?? '');
+              return Card(
+                child: ListTile(
+                  leading: Icon(
+                    incoming ? Icons.card_giftcard : Icons.redeem,
+                    color: const Color(0xFFB99AFF),
+                  ),
+                  title: Text(model['name'] as String? ?? 'Подарок'),
+                  subtitle: Text('$label · ${date == null ? '' : date.toLocal().toString().substring(0, 16)}'),
+                  trailing: gift['serial_number'] == null
+                      ? null
+                      : Text('№${gift['serial_number']}'),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 
   Widget _loadingList(Future<List<Map<String, dynamic>>> future, {required bool owned}) {
@@ -170,9 +247,11 @@ class _GiftsPageState extends State<GiftsPage> with SingleTickerProviderStateMix
             color: const Color(0xFF171824),
             child: TabBar(
               controller: _tabs,
+              isScrollable: true,
               tabs: const [
                 Tab(text: 'Каталог'),
                 Tab(text: 'Мои подарки'),
+                Tab(text: 'История'),
               ],
             ),
           ),
@@ -182,6 +261,7 @@ class _GiftsPageState extends State<GiftsPage> with SingleTickerProviderStateMix
               children: [
                 _loadingList(_catalog, owned: false),
                 _loadingList(_owned, owned: true),
+                _historyList(),
               ],
             ),
           ),
