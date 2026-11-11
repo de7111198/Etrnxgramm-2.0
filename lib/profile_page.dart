@@ -193,22 +193,39 @@ class _ProfilePageState extends State<ProfilePage> {
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(24),
-            image: coverUrl.isEmpty ? null : DecorationImage(
-              image: NetworkImage(coverUrl), fit: BoxFit.cover,
-              onError: (_, __) {},
-            ),
           ),
+          clipBehavior: Clip.antiAlias,
           child: coverUrl.isEmpty
               ? const Center(child: Icon(Icons.auto_awesome, size: 55))
-              : const SizedBox.expand(),
+              : Image.network(
+                  coverUrl,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const Center(
+                    child: Icon(Icons.broken_image_outlined, size: 42),
+                  ),
+                ),
         ),
         const SizedBox(height: 18),
         Center(
-          child: CircleAvatar(
-            radius: 48,
-            backgroundColor: const Color(0xFF9875FF),
-            backgroundImage: avatarUrl.isEmpty ? null : NetworkImage(avatarUrl),
-            child: avatarUrl.isEmpty ? const Icon(Icons.person, size: 52) : null,
+          child: ClipOval(
+            child: avatarUrl.isEmpty
+                ? const CircleAvatar(
+                    radius: 48,
+                    backgroundColor: Color(0xFF9875FF),
+                    child: Icon(Icons.person, size: 52),
+                  )
+                : Image.network(
+                    avatarUrl,
+                    width: 96,
+                    height: 96,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const CircleAvatar(
+                      radius: 48,
+                      backgroundColor: Color(0xFF9875FF),
+                      child: Icon(Icons.person, size: 52),
+                    ),
+                  ),
           ),
         ),
         const SizedBox(height: 12),
