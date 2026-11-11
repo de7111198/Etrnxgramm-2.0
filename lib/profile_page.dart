@@ -84,6 +84,15 @@ class _ProfilePageState extends State<ProfilePage> {
     final db = Supabase.instance.client;
     final user = db.auth.currentUser;
     if (user == null) return;
+    for (final value in [newAvatarUrl.trim(), newCoverUrl.trim()]) {
+      if (value.isNotEmpty &&
+          !(value.startsWith('https://') || value.startsWith('http://'))) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ссылки на изображения должны начинаться с https:// или http://')),
+        );
+        return;
+      }
+    }
     setState(() => saving = true);
     try {
       if (newUsername.trim().isNotEmpty) {
