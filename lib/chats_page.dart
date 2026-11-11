@@ -665,6 +665,22 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.push_pin_outlined),
+              title: const Text('Закрепить'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _pinMessage(message, true);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.push_pin),
+              title: const Text('Открепить'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _pinMessage(message, false);
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.forward),
               title: const Text('Переслать'),
               onTap: () {
@@ -694,6 +710,32 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _pinMessage(
+      Map<String, dynamic> message, bool pin) async {
+    try {
+      if (pin) {
+        await _client.rpc('pin_chat_message', params: {
+          'target_message': message['id'],
+        });
+      } else {
+        await _client.rpc('unpin_chat_message', params: {
+          'target_chat': widget.chatId,
+          'target_message': message['id'],
+        });
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(pin ? 'Сообщение закреплено' : 'Сообщение откреплено')),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось изменить закрепление: $error')),
+      );
+    }
   }
 
   Future<void> _editMessage(Map<String, dynamic> message) async {
