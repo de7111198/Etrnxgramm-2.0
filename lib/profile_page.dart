@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'supabase_config.dart';
+
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
@@ -23,6 +25,13 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _load() async {
+    if (!SupabaseConfig.isConfigured) {
+      if (mounted) setState(() {
+        loading = false;
+        error = 'Сервер ещё не настроен. Профиль станет доступен после подключения.';
+      });
+      return;
+    }
     try {
       final db = Supabase.instance.client;
       final user = db.auth.currentUser;
@@ -50,6 +59,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _save(String newName, String newUsername, String newAbout) async {
+    if (!SupabaseConfig.isConfigured) return;
     final db = Supabase.instance.client;
     final user = db.auth.currentUser;
     if (user == null) return;
