@@ -313,6 +313,57 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
 
 
 
+
+  Future<void> _manageMember(String userId, String action) async {
+    final messages = {
+      'admin': 'Назначить участника администратором?',
+      'member': 'Снять права администратора?',
+      'remove': 'Удалить участника из группы?',
+    };
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Управление участником'),
+        content: Text(messages[action]!),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Подтвердить'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      if (action == 'remove') {
+        await _client.rpc('remove_chat_member', params: {
+          'target_chat': widget.chatId,
+          'target_user': userId,
+        });
+      } else {
+        await _client.rpc('set_chat_member_role', params: {
+          'target_chat': widget.chatId,
+          'target_user': userId,
+          'new_role': action,
+        });
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Изменения сохранены')),
+      );
+      _showMembers();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось изменить участника: $error')),
+      );
+    }
+  }
+
   Future<void> _showMembers() async {
     try {
       final memberships = await _client
@@ -372,47 +423,78 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                         subtitle: Text(handles[id] == null
                             ? label
                             : '@${handles[id]} · $label'),
-                        trailing: currentRole == 'owner' && id != currentUserId && role != 'owner'
-                            ? TextButton(
-                                onPressed: () async {
-                                  Navigator.pop(sheetContext);
-                                  final confirmed = await showDialog<bool>(
-                                    context: this.context,
-                                    builder: (dialogContext) => AlertDialog(
-                                      title: const Text('Передать владение?'),
-                                      content: Text('Владелец группы изменится на ${names[id] ?? 'этого участника'}.'),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(dialogContext, false),
-                                          child: const Text('Отмена'),
-                                        ),
-                                        FilledButton(
-                                          onPressed: () => Navigator.pop(dialogContext, true),
-                                          child: const Text('Передать'),
-                                        ),
+                        trailing: id == currentUserId || role == 'owner'
+                            ? null
+                            : Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (currentRole == 'owner')
+                                    TextButton(
+                                      onPressed: () async {
+                                        Navigator.pop(sheetContext);
+                                        final confirmed = await showDialog<bool>(
+                                          context: this.context,
+                                          builder: (dialogContext) => AlertDialog(
+                                            title: const Text('Передать владение?'),
+                                            content: Text('Владелец группы изменится на ${names[id] ?? 'этого участника'}.'),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(dialogContext, false),
+                                                child: const Text('Отмена'),
+                                              ),
+                                              FilledButton(
+                                                onPressed: () => Navigator.pop(dialogContext, true),
+                                                child: const Text('Передать'),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                        if (confirmed != true || !mounted) return;
+                                        try {
+                                          await _client.rpc('transfer_chat_ownership', params: {
+                                            'target_chat': widget.chatId,
+                                            'new_owner': id,
+                                          });
+                                          if (!mounted) return;
+                                          ScaffoldMessenger.of(this.context).showSnackBar(
+                                            const SnackBar(content: Text('Владение группой передано')),
+                                          );
+                                        } catch (error) {
+                                          if (!mounted) return;
+                                          ScaffoldMessenger.of(this.context).showSnackBar(
+                                            SnackBar(content: Text('Не удалось передать владение: $error')),
+                                          );
+                                        }
+                                      },
+                                      child: const Text('Передать'),
+                                    ),
+                                  if (currentRole == 'owner' ||
+                                      (currentRole == 'admin' && role == 'member'))
+                                    PopupMenuButton<String>(
+                                      onSelected: (action) {
+                                        Navigator.pop(sheetContext);
+                                        _manageMember(id, action);
+                                      },
+                                      itemBuilder: (_) => [
+                                        if (currentRole == 'owner' && role == 'member')
+                                          const PopupMenuItem(
+                                            value: 'admin',
+                                            child: Text('Назначить администратором'),
+                                          ),
+                                        if (currentRole == 'owner' && role == 'admin')
+                                          const PopupMenuItem(
+                                            value: 'member',
+                                            child: Text('Снять права администратора'),
+                                          ),
+                                        if (currentRole == 'owner' || role == 'member')
+                                          const PopupMenuItem(
+                                            value: 'remove',
+                                            child: Text('Удалить из группы'),
+                                          ),
                                       ],
                                     ),
-                                  );
-                                  if (confirmed != true || !mounted) return;
-                                  try {
-                                    await _client.rpc('transfer_chat_ownership', params: {
-                                      'target_chat': widget.chatId,
-                                      'new_owner': id,
-                                    });
-                                    if (!mounted) return;
-                                    ScaffoldMessenger.of(this.context).showSnackBar(
-                                      const SnackBar(content: Text('Владение группой передано')),
-                                    );
-                                  } catch (error) {
-                                    if (!mounted) return;
-                                    ScaffoldMessenger.of(this.context).showSnackBar(
-                                      SnackBar(content: Text('Не удалось передать владение: $error')),
-                                    );
-                                  }
-                                },
-                                child: const Text('Передать'),
-                              )
-                            : null,
+                                ],
+                              ),
                       );
                     },
                   ),
