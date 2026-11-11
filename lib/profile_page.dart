@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'supabase_config.dart';
+import 'owner_admin_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -16,6 +17,7 @@ class _ProfilePageState extends State<ProfilePage> {
   String about = '';
   bool loading = true;
   bool saving = false;
+  bool isOwner = false;
   String? error;
 
   @override
@@ -41,11 +43,18 @@ class _ProfilePageState extends State<ProfilePage> {
       final handle = await db.from('usernames')
           .select('username').eq('user_id', user.id)
           .eq('is_primary', true).maybeSingle();
+      var ownerAccess = false;
+      try {
+        ownerAccess = await db.rpc('is_platform_owner') as bool;
+      } catch (_) {
+        ownerAccess = false;
+      }
       if (!mounted) return;
       setState(() {
         name = profile?['display_name'] as String? ?? name;
         about = profile?['about'] as String? ?? '';
         username = handle?['username'] as String? ?? '';
+        isOwner = ownerAccess;
         loading = false;
         error = null;
       });
@@ -177,6 +186,18 @@ class _ProfilePageState extends State<ProfilePage> {
         const SizedBox(height: 8),
         Center(child: Text(about, textAlign: TextAlign.center)),
         const SizedBox(height: 22),
+        if (isOwner)
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.admin_panel_settings, color: Colors.purpleAccent),
+              title: const Text('Панель владельца'),
+              subtitle: const Text('Управление коллекциями и выдачей подарков'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => const OwnerAdminPage(),
+              )),
+            ),
+          ),
         FilledButton.icon(
           onPressed: saving ? null : _edit,
           icon: const Icon(Icons.edit),
