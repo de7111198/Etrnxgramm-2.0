@@ -367,7 +367,7 @@ class ChatThreadPage extends StatefulWidget {
 class _ChatThreadPageState extends State<ChatThreadPage> {
   final _controller = TextEditingController();
   bool _sending = false;
-  bool _canPost = true;
+  bool _canPost = false;
   Map<String, dynamic>? _replyTo;
 
   SupabaseClient get _client => Supabase.instance.client;
