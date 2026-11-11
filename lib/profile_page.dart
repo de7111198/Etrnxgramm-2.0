@@ -15,6 +15,8 @@ class _ProfilePageState extends State<ProfilePage> {
   String name = 'Etrnx User';
   String username = '';
   String about = '';
+  String avatarUrl = '';
+  String coverUrl = '';
   bool loading = true;
   bool saving = false;
   bool isOwner = false;
@@ -40,7 +42,7 @@ class _ProfilePageState extends State<ProfilePage> {
       final user = db.auth.currentUser;
       if (user == null) return;
       final profile = await db.from('profiles')
-          .select('display_name, about').eq('id', user.id).maybeSingle();
+          .select('display_name, about, avatar_url, cover_url').eq('id', user.id).maybeSingle();
       final handle = await db.from('usernames')
           .select('username').eq('user_id', user.id)
           .eq('is_primary', true).maybeSingle();
@@ -60,6 +62,8 @@ class _ProfilePageState extends State<ProfilePage> {
       setState(() {
         name = profile?['display_name'] as String? ?? name;
         about = profile?['about'] as String? ?? '';
+        avatarUrl = profile?['avatar_url'] as String? ?? '';
+        coverUrl = profile?['cover_url'] as String? ?? '';
         username = handle?['username'] as String? ?? '';
         isOwner = ownerAccess;
         recentGifts = gifts.map((row) => Map<String, dynamic>.from(row)).toList();
@@ -75,7 +79,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Future<void> _save(String newName, String newUsername, String newAbout) async {
+  Future<void> _save(String newName, String newUsername, String newAbout, String newAvatarUrl, String newCoverUrl) async {
     if (!SupabaseConfig.isConfigured) return;
     final db = Supabase.instance.client;
     final user = db.auth.currentUser;
@@ -89,11 +93,15 @@ class _ProfilePageState extends State<ProfilePage> {
       await db.from('profiles').update({
         'display_name': newName.trim(),
         'about': newAbout.trim(),
+        'avatar_url': newAvatarUrl.trim().isEmpty ? null : newAvatarUrl.trim(),
+        'cover_url': newCoverUrl.trim().isEmpty ? null : newCoverUrl.trim(),
       }).eq('id', user.id);
       if (!mounted) return;
       setState(() {
         name = newName.trim();
         about = newAbout.trim();
+        avatarUrl = newAvatarUrl.trim();
+        coverUrl = newCoverUrl.trim();
         if (newUsername.trim().isNotEmpty) {
           username = newUsername.trim().toLowerCase();
         }
@@ -120,6 +128,8 @@ class _ProfilePageState extends State<ProfilePage> {
     final n = TextEditingController(text: name);
     final u = TextEditingController(text: username);
     final a = TextEditingController(text: about);
+    final avatar = TextEditingController(text: avatarUrl);
+    final cover = TextEditingController(text: coverUrl);
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -133,6 +143,10 @@ class _ProfilePageState extends State<ProfilePage> {
                     labelText: 'Основной username', prefixText: '@')),
             TextField(controller: a, maxLength: 160,
                 decoration: const InputDecoration(labelText: 'О себе')),
+            TextField(controller: avatar, keyboardType: TextInputType.url,
+                decoration: const InputDecoration(labelText: 'Ссылка на аватар (https://)')),
+            TextField(controller: cover, keyboardType: TextInputType.url,
+                decoration: const InputDecoration(labelText: 'Ссылка на обложку (https://)')),
           ]),
         ),
         actions: [
@@ -143,7 +157,7 @@ class _ProfilePageState extends State<ProfilePage> {
             onPressed: saving ? null : () async {
               if (n.text.trim().isEmpty) return;
               Navigator.pop(dialogContext);
-              await _save(n.text, u.text, a.text);
+              await _save(n.text, u.text, a.text, avatar.text, cover.text);
             },
             child: const Text('Сохранить'),
           ),
@@ -153,6 +167,8 @@ class _ProfilePageState extends State<ProfilePage> {
     n.dispose();
     u.dispose();
     a.dispose();
+    avatar.dispose();
+    cover.dispose();
   }
 
   @override
@@ -177,14 +193,24 @@ class _ProfilePageState extends State<ProfilePage> {
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(24),
+            image: coverUrl.isEmpty ? null : DecorationImage(
+              image: NetworkImage(coverUrl), fit: BoxFit.cover,
+              onError: (_, __) {},
+            ),
           ),
-          child: const Center(child: Icon(Icons.auto_awesome, size: 55)),
+          child: coverUrl.isEmpty
+              ? const Center(child: Icon(Icons.auto_awesome, size: 55))
+              : const SizedBox.expand(),
         ),
         const SizedBox(height: 18),
-        const Center(child: CircleAvatar(
-          radius: 48, backgroundColor: Color(0xFF9875FF),
-          child: Icon(Icons.person, size: 52),
-        )),
+        Center(
+          child: CircleAvatar(
+            radius: 48,
+            backgroundColor: const Color(0xFF9875FF),
+            backgroundImage: avatarUrl.isEmpty ? null : NetworkImage(avatarUrl),
+            child: avatarUrl.isEmpty ? const Icon(Icons.person, size: 52) : null,
+          ),
+        ),
         const SizedBox(height: 12),
         Center(child: Text(name, style: const TextStyle(
             fontSize: 25, fontWeight: FontWeight.bold))),
