@@ -37,8 +37,9 @@ Migrations are in `supabase/migrations/`:
 - `0007_group_member_moderation.sql` adds owner-controlled admin promotion/demotion and secure member removal; admins can remove regular members only.
 - `0008_message_reactions.sql` adds per-user message reactions, membership-protected reads, a secure toggle RPC and Realtime updates.
 - `0009_channels.sql` adds channel creation and enforces owner/admin-only publishing on the server.
+- `0010_platform_owner_gift_admin.sql` adds an explicitly seeded platform-owner registry and secure gift collection/model creation and gift-grant RPCs.
 
-Gift grants, transfers, marketplace settlement and owner/admin management still require trusted server-side operations with authorization and audit logging. There is no owner account or hidden default administrator.
+The owner gift panel is available only after the maintainer manually inserts their verified Supabase Auth user UUID into `public.platform_owners` using the Supabase SQL Editor. There is no first-user auto-owner or hidden default administrator. User-to-user gift transfers and marketplace settlement still require additional trusted server-side operations and audit logging.
 
 To activate a backend later:
 
@@ -46,7 +47,8 @@ To activate a backend later:
 2. Apply all SQL migrations in numerical order using the Supabase SQL Editor or Supabase CLI.
 3. Configure email OTP delivery and allowed redirect URLs in Supabase Auth.
 4. Add GitHub Actions repository secrets named `SUPABASE_URL` and `SUPABASE_ANON_KEY` (the public anon/publishable key). The workflow passes them to Android, Windows and iOS builds as compile-time values. Never add a service-role key, database password or email-provider secret to the Flutter app, GitHub Actions build variables, or public repository.
-5. Connect and test the Flutter client and server-side operations before enabling real messaging, gift administration or marketplace actions.
+5. Manually seed `public.platform_owners` with the maintainer's verified Auth user UUID from the Supabase SQL Editor to enable the owner panel. Do not add a client-side owner claim flow.
+6. Connect and test the Flutter client and server-side operations before enabling real messaging, gift administration or marketplace actions.
 
 The migrations alone do not create a running backend. Email OTP also requires email delivery and redirect settings to be configured in Supabase Auth. Without the two GitHub secrets, the app deliberately shows a server-not-configured screen instead of pretending that login works.
 
