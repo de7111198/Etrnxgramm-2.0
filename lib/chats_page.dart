@@ -308,6 +308,7 @@ class ChatThreadPage extends StatefulWidget {
 class _ChatThreadPageState extends State<ChatThreadPage> {
   final _controller = TextEditingController();
   bool _sending = false;
+  Map<String, dynamic>? _replyTo;
 
   SupabaseClient get _client => Supabase.instance.client;
 
@@ -573,8 +574,10 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
       await _client.rpc('send_chat_message', params: {
         'target_chat': widget.chatId,
         'message_text': text,
+        'reply_message': _replyTo?['id'],
       });
       _controller.clear();
+      if (mounted) setState(() => _replyTo = null);
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -639,9 +642,16 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                   itemBuilder: (context, index) {
                     final message = messages[index];
                     final mine = message['sender_id'] == userId;
+                    final replyId = message['reply_to'] as String?;
+                    final replied = replyId == null ? null : messages.cast<Map<String, dynamic>?>().firstWhere(
+                      (item) => item?['id'] == replyId,
+                      orElse: () => null,
+                    );
                     return Align(
                       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
-                      child: Container(
+                      child: GestureDetector(
+                        onLongPress: () => setState(() => _replyTo = message),
+                        child: Container(
                         constraints: const BoxConstraints(maxWidth: 300),
                         margin: const EdgeInsets.symmetric(vertical: 4),
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -649,7 +659,29 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                           color: mine ? const Color(0xFF59458A) : const Color(0xFF252633),
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: Text(message['body'] as String),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (replied != null)
+                              Container(
+                                width: double.infinity,
+                                margin: const EdgeInsets.only(bottom: 6),
+                                padding: const EdgeInsets.all(7),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.16),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  replied['body'] as String,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 12, color: Colors.white70),
+                                ),
+                              ),
+                            Text(message['body'] as String),
+                          ],
+                        ),
                       ),
                     );
                   },
@@ -660,8 +692,38 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(10, 6, 10, 10),
-              child: Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (_replyTo != null)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF302746),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.reply, color: Color(0xFFB99AFF)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Ответ: ${_replyTo!['body']}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Отменить ответ',
+                            onPressed: () => setState(() => _replyTo = null),
+                            icon: const Icon(Icons.close),
+                          ),
+                        ],
+                      ),
+                    ),
+                  Row(
+                    children: [
                   Expanded(
                     child: TextField(
                       controller: _controller,
@@ -688,6 +750,8 @@ class _ChatThreadPageState extends State<ChatThreadPage> {
                         ? const SizedBox(width: 18, height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.send),
+                  ),
+                    ],
                   ),
                 ],
               ),
