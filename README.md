@@ -33,6 +33,7 @@ Migrations are in `supabase/migrations/`:
 - `0005_profile_sync.sql` adds a transactional primary-username operation and profile update timestamp trigger.
 - `0006_secure_message_sending.sql` adds authenticated message sending with membership and reply checks, and enables message Realtime.
 - `0007_group_member_moderation.sql` adds owner-controlled admin promotion/demotion and secure member removal; admins can remove regular members only.
+- `0008_message_reactions.sql` adds per-user message reactions, membership-protected reads, a secure toggle RPC and Realtime updates.
 
 Gift grants, transfers, marketplace settlement and owner/admin management still require trusted server-side operations with authorization and audit logging. There is no owner account or hidden default administrator.
 
