@@ -6,14 +6,18 @@ void main() {
   testWidgets('main sections render and navigation switches to gifts',
       (tester) async {
     await tester.pumpWidget(const MaterialApp(home: MainScreen()));
+    await tester.pumpAndSettle();
 
     expect(find.text('Etrnxgram'), findsOneWidget);
     expect(find.text('Чатов пока нет'), findsOneWidget);
 
     await tester.tap(find.text('Подарки'));
     await tester.pumpAndSettle();
-    expect(find.text('Коллекция подарков пока не подключена к серверу.'),
-        findsOneWidget);
+    expect(find.textContaining('Подключи сервер'), findsOneWidget);
+
+    await tester.tap(find.text('Контакты'));
+    await tester.pumpAndSettle();
+    expect(find.text('Пока нет пользователей'), findsOneWidget);
   });
 
   testWidgets('shows backend setup instead of fake login when unconfigured',
