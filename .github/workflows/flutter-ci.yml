@@ -47,7 +47,9 @@ jobs:
             -e 's/(compileSdkVersion|compileSdk)[[:space:]]*=?[[:space:]]*[0-9]+/\1 36/g' \
             -e 's/compileSdk[[:space:]]*=[[:space:]]*flutter\.compileSdkVersion/compileSdk = 36/g' {} \;
           # Kotlin Gradle scripts require the equals sign; keep Groovy syntax unchanged.
-          find "$HOME/.pub-cache/hosted/pub.dev" -path '*/android/build.gradle.kts' -type f -exec sed -i 's/compileSdk 36/compileSdk = 36/g' {} \\;
+          while IFS= read -r file; do
+            sed -i 's/compileSdk 36/compileSdk = 36/g' "$file"
+          done < <(find "$HOME/.pub-cache/hosted/pub.dev" -path '*/android/build.gradle.kts' -type f)
           echo "Resolved Android plugin compile SDK declarations:"
           grep -R -n -E 'compileSdk(Version)?[[:space:]]*(=|[0-9])' "$HOME/.pub-cache/hosted/pub.dev"/*/android/build.gradle* 2>/dev/null || true
 
