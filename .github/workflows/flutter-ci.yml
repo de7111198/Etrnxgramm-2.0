@@ -40,6 +40,14 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Set Android compile SDK for Flutter plugins
+        run: |
+          find "$HOME/.pub-cache/hosted/pub.dev" -path '*/android/build.gradle*' -type f -exec sed -i \
+            -e 's/compileSdk = flutter.compileSdkVersion/compileSdk = 36/' \
+            -e 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 36/' \
+            -e 's/compileSdk = 34/compileSdk = 36/' \
+            -e 's/compileSdkVersion 34/compileSdkVersion 36/' {} \;
+
       - name: Analyze Dart code
         run: flutter analyze --no-fatal-infos
 
