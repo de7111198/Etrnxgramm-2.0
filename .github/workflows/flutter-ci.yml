@@ -41,12 +41,13 @@ jobs:
         run: flutter pub get
 
       - name: Set Android compile SDK for Flutter plugins
+        shell: bash
         run: |
-          find "$HOME/.pub-cache/hosted/pub.dev" -path '*/android/build.gradle*' -type f -exec sed -i \
-            -e 's/compileSdk = flutter.compileSdkVersion/compileSdk = 36/' \
-            -e 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 36/' \
-            -e 's/compileSdk = 34/compileSdk = 36/' \
-            -e 's/compileSdkVersion 34/compileSdkVersion 36/' {} \;
+          find "$HOME/.pub-cache/hosted/pub.dev" -path '*/android/build.gradle*' -type f -print -exec sed -i -E \
+            -e 's/(compileSdkVersion|compileSdk)[[:space:]]*=?[[:space:]]*[0-9]+/\1 36/g' \
+            -e 's/compileSdk[[:space:]]*=[[:space:]]*flutter\.compileSdkVersion/compileSdk = 36/g' {} \;
+          echo "Resolved Android plugin compile SDK declarations:"
+          grep -R -n -E 'compileSdk(Version)?[[:space:]]*(=|[0-9])' "$HOME/.pub-cache/hosted/pub.dev"/*/android/build.gradle* 2>/dev/null || true
 
       - name: Analyze Dart code
         run: flutter analyze --no-fatal-infos
